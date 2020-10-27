@@ -50,6 +50,10 @@ func (k KubeCF) GetDomain() string {
 	return k.domain
 }
 
+func (k KubeCF) Describe() string {
+	return emoji.Sprintf(":cloud: KubeCF version: %s\nQuarks chart: %s\nKubeCF chart: %s\n", k.Version, k.QuarksOperator, k.ChartURL)
+}
+
 func (k KubeCF) Delete(c kubernetes.Cluster) error {
 	currentdir, _ := os.Getwd()
 

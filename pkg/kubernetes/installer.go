@@ -13,6 +13,7 @@ type Deployment interface {
 	SetDomain(d string)
 	GetDomain() string
 	Delete(Cluster) error
+	Describe() string
 }
 
 func NewInstaller() *Installer {
@@ -20,6 +21,7 @@ func NewInstaller() *Installer {
 }
 
 func (i *Installer) Install(d Deployment, cluster Cluster) error {
+	fmt.Println(d.Describe())
 
 	// Automatically set a deployment domain based on platform reported ExternalIPs
 	if d.GetDomain() == "" {
