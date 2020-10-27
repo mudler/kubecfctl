@@ -85,40 +85,22 @@ func (c *Cluster) isPodRunning(podName, namespace string) wait.ConditionFunc {
 
 		for _, cont := range pod.Status.ContainerStatuses {
 			if cont.State.Waiting != nil {
-				fmt.Println("containers still in waiting")
-				return false, err
+				//fmt.Println("containers still in waiting")
+				return false, nil
+			}
+		}
+
+		for _, cont := range pod.Status.InitContainerStatuses {
+			if cont.State.Waiting != nil || cont.State.Terminated != nil {
+				return false, nil
 			}
 		}
 
 		switch pod.Status.Phase {
-		case v1.PodRunning:
+		case v1.PodRunning, v1.PodSucceeded:
 			return true, nil
-		case v1.PodFailed, v1.PodSucceeded:
-			return false, conditions.ErrPodCompleted
-		}
-		return false, nil
-	}
-}
-
-func (c *Cluster) isPodSucceeded(podName, namespace string) wait.ConditionFunc {
-	return func() (bool, error) {
-		fmt.Printf(".")
-		pod, err := c.Kubectl.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-
-		for _, cont := range pod.Status.ContainerStatuses {
-			if cont.State.Waiting != nil {
-				return false, err
-			}
-		}
-
-		switch pod.Status.Phase {
-		case v1.PodRunning, v1.PodFailed:
+		case v1.PodFailed:
 			return false, nil
-		case v1.PodSucceeded:
-			return true, nil
 		}
 		return false, nil
 	}
