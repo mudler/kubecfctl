@@ -2,12 +2,12 @@ package kubernetes
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/briandowns/spinner"
 	"github.com/kyokomi/emoji"
+	"github.com/pkg/errors"
 
 	k3s "github.com/mudler/kubecfctl/pkg/kubernetes/platform/k3s"
 	kind "github.com/mudler/kubecfctl/pkg/kubernetes/platform/kind"
@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/kubernetes/pkg/client/conditions"
 )
 
 type Platform interface {
@@ -77,7 +76,6 @@ func (c *Cluster) detectPlatform() {
 // currently running
 func (c *Cluster) isPodRunning(podName, namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
-		fmt.Printf(".")
 		pod, err := c.Kubectl.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -125,10 +123,6 @@ func (c *Cluster) WaitForPodRunning(namespace, podName string, timeout time.Dura
 	return wait.PollImmediate(time.Second, timeout, c.isPodRunning(podName, namespace))
 }
 
-func (c *Cluster) WaitForPodSuccess(namespace, podName string, timeout time.Duration) error {
-	return wait.PollImmediate(time.Second, timeout, c.isPodSucceeded(podName, namespace))
-}
-
 // ListPods returns the list of currently scheduled or running pods in `namespace` with the given selector
 func (c *Cluster) ListPods(namespace, selector string) (*v1.PodList, error) {
 	listOptions := metav1.ListOptions{}
@@ -145,11 +139,12 @@ func (c *Cluster) ListPods(namespace, selector string) (*v1.PodList, error) {
 // Wait up to timeout seconds for all pods in 'namespace' with given 'selector' to enter running state.
 // Returns an error if no pods are found or not all discovered pods enter running state.
 func (c *Cluster) WaitUntilPodBySelectorExist(namespace, selector string, timeout int) error {
-	emoji.Println("waiting for pod with selector " + selector + " to exists")
+	//emoji.Println("waiting for pod with selector " + selector + " to exists")
 
 	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond) // Build our new spinner
 	s.Start()                                                    // Start the spinner
 	defer s.Stop()
+	s.Suffix = emoji.Sprintf(" Waiting for resource %s to be created in %s ... :zzz: ", selector, namespace)
 	return wait.PollImmediate(time.Second, time.Duration(timeout)*time.Second, c.podExists(namespace, selector))
 }
 
@@ -159,43 +154,22 @@ func (c *Cluster) WaitForPodBySelectorRunning(namespace, selector string, timeou
 	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond) // Build our new spinner
 	s.Start()                                                    // Start the spinner
 	defer s.Stop()
+	s.Suffix = emoji.Sprintf(" Waiting for resource %s to be running in %s ... :zzz: ", selector, namespace)
 	podList, err := c.ListPods(namespace, selector)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed listingpods with selector %s", selector)
 	}
+	//emoji.Println("Found ", len(podList.Items), " total pods")
+
 	if len(podList.Items) == 0 {
 		return fmt.Errorf("no pods in %s with selector %s", namespace, selector)
 	}
 
 	for _, pod := range podList.Items {
-		emoji.Println("waiting for " + pod.Name)
+		s.Suffix = emoji.Sprintf(" Waiting for pod %s to be running in %s ... :zzz: ", pod.Name, namespace)
+		//emoji.Println("waiting for " + pod.Name)
 		if err := c.WaitForPodRunning(namespace, pod.Name, time.Duration(timeout)*time.Second); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Wait up to timeout seconds for all pods in 'namespace' with given 'selector' to enter running state.
-// Returns an error if no pods are found or not all discovered pods enter running state.
-func (c *Cluster) WaitForPodBySelectorSucceeded(namespace, selector string, timeout int) error {
-	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond) // Build our new spinner
-	s.Start()                                                    // Start the spinner
-	defer s.Stop()
-	podList, err := c.ListPods(namespace, selector)
-	if err != nil {
-		return err
-	}
-	if len(podList.Items) == 0 {
-		return fmt.Errorf("no pods in %s with selector %s", namespace, selector)
-	}
-
-	emoji.Println("Found ", len(podList.Items), " total pods")
-
-	for _, pod := range podList.Items {
-		emoji.Println("waiting for " + pod.Name)
-		if err := c.WaitForPodSuccess(namespace, pod.Name, time.Duration(timeout)*time.Second); err != nil {
-			return err
+			return errors.Wrapf(err, "failed waiting for %s", pod.Name)
 		}
 	}
 	return nil

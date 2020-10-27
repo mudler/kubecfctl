@@ -20,7 +20,7 @@ func (k *k3s) Describe() string {
 func (k *k3s) String() string { return "k3s" }
 
 func (k *k3s) Detect(kube *kubernetes.Clientset) bool {
-	nodes, err := kube.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	nodes, err := kube.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return false
 	}
@@ -33,7 +33,7 @@ func (k *k3s) Detect(kube *kubernetes.Clientset) bool {
 }
 
 func (k *k3s) Load(kube *kubernetes.Clientset) error {
-	nodes, err := kube.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	nodes, err := kube.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}

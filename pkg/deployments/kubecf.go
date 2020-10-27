@@ -58,9 +58,9 @@ func (k KubeCF) Delete(c kubernetes.Cluster) error {
 	helpers.RunProc("kubectl delete crds quarkssecrets.quarks.cloudfoundry.org", currentdir)
 	helpers.RunProc("kubectl delete crds quarksstatefulsets.quarks.cloudfoundry.org", currentdir)
 
-	c.Kubectl.CoreV1().Namespaces().Delete(context.TODO(), "kubecf", metav1.DeleteOptions{})
-	c.Kubectl.CoreV1().Namespaces().Delete(context.TODO(), "cf-operator", metav1.DeleteOptions{})
-	c.Kubectl.CoreV1().Namespaces().Delete(context.TODO(), "eirini", metav1.DeleteOptions{})
+	c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), "kubecf", metav1.DeleteOptions{})
+	c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), "cf-operator", metav1.DeleteOptions{})
+	c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), "eirini", metav1.DeleteOptions{})
 
 	return nil
 }
@@ -68,7 +68,7 @@ func (k KubeCF) Delete(c kubernetes.Cluster) error {
 func (k KubeCF) Deploy(c kubernetes.Cluster) error {
 	emoji.Println(":anchor: Deploying cf-operator")
 	_, err := c.Kubectl.CoreV1().Namespaces().Get(
-		context.TODO(),
+		context.Background(),
 		"cf-operator",
 		metav1.GetOptions{},
 	)
@@ -113,7 +113,7 @@ func (k KubeCF) Deploy(c kubernetes.Cluster) error {
 
 	// End helm values setup
 
-	emoji.Println("done :check_mark:")
+	emoji.Println("Quarks Operator deployed correctly :check_mark:")
 
 	emoji.Println(":anchor: Deploying kubecf")
 
@@ -134,5 +134,5 @@ func (k KubeCF) Deploy(c kubernetes.Cluster) error {
 		}
 	}
 
-	return c.WaitForPodBySelectorRunning(k.Namespace, "", k.Timeout)
+	return c.WaitForPodBySelectorRunning(k.Namespace, "app.kubernetes.io/name=kubecf", k.Timeout)
 }
