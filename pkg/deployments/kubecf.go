@@ -70,7 +70,7 @@ func (k KubeCF) Delete(c kubernetes.Cluster) error {
 }
 
 func (k KubeCF) Deploy(c kubernetes.Cluster) error {
-	emoji.Println(":anchor: Deploying cf-operator")
+	emoji.Println(":cloud: Deploying Quarks Operator")
 	_, err := c.Kubectl.CoreV1().Namespaces().Get(
 		context.Background(),
 		"cf-operator",
@@ -117,15 +117,15 @@ func (k KubeCF) Deploy(c kubernetes.Cluster) error {
 
 	// End helm values setup
 
-	emoji.Println("Quarks Operator deployed correctly :check_mark:")
+	emoji.Println(":cloud: Quarks Operator deployed correctly :check_mark:")
 
-	emoji.Println(":anchor: Deploying kubecf")
+	emoji.Println(":cloud: Deploying kubecf")
 
 	_, err = helpers.RunProc("helm install kubecf --namespace "+k.Namespace+" "+k.ChartURL+" "+strings.Join(helmArgs, " "), currentdir)
 	if err != nil {
 		return errors.New("Failed installing kubecf")
 	}
-	emoji.Println(":person_in_bed: Waiting for kubecf to be ready")
+	//emoji.Println(":zzz: Waiting for kubecf to be ready")
 
 	for _, s := range []string{"api", "nats", "cc-worker", "doppler"} {
 		//spin := spinner.New(spinner.CharSets[11], 100*time.Millisecond) // Build our new spinner
