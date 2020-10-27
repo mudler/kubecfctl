@@ -89,7 +89,7 @@ func (c *Cluster) isPodRunning(podName, namespace string) wait.ConditionFunc {
 		}
 
 		for _, cont := range pod.Status.InitContainerStatuses {
-			if cont.State.Waiting != nil || cont.State.Terminated != nil {
+			if cont.State.Waiting != nil || cont.State.Running != nil {
 				return false, nil
 			}
 		}
