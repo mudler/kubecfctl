@@ -9,17 +9,17 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type Kind struct {
+type kind struct {
 	InternalIPs []string
 }
 
-func (k *Kind) Describe() string {
+func (k *kind) Describe() string {
 	return emoji.Sprintf(":anchor: Detected kubernetes platform: %s\nExternalIPs: %s\nInternalIPs: %s\n", k.String(), k.ExternalIPs(), k.InternalIPs)
 }
 
-func (k *Kind) String() string { return "kind" }
+func (k *kind) String() string { return "kind" }
 
-func (k *Kind) Detect(kube *kubernetes.Clientset) bool {
+func (k *kind) Detect(kube *kubernetes.Clientset) bool {
 	nodes, err := kube.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return false
@@ -32,7 +32,7 @@ func (k *Kind) Detect(kube *kubernetes.Clientset) bool {
 	return false
 }
 
-func (k *Kind) Load(kube *kubernetes.Clientset) error {
+func (k *kind) Load(kube *kubernetes.Clientset) error {
 	nodes, err := kube.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return err
@@ -50,10 +50,10 @@ func (k *Kind) Load(kube *kubernetes.Clientset) error {
 	return nil
 }
 
-func (k *Kind) ExternalIPs() []string {
+func (k *kind) ExternalIPs() []string {
 	return k.InternalIPs
 }
 
-func NewPlatform() *Kind {
-	return &Kind{}
+func NewPlatform() *kind {
+	return &kind{}
 }

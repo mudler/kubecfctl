@@ -31,9 +31,13 @@ var installCmd = &cobra.Command{
 	Long:    `This command installs kubecf in your cluster`,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viper.BindPFlag("eirini", cmd.Flags().Lookup("eirini"))
+		viper.BindPFlag("rollback", cmd.Flags().Lookup("rollback"))
+		viper.BindPFlag("ingress", cmd.Flags().Lookup("ingress"))
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		eirini := viper.GetBool("eirini")
+		rollback := viper.GetBool("rollback")
+		ingress := viper.GetBool("ingress")
 
 		cluster, err := kubernetes.NewCluster(os.Getenv("KUBECONFIG"))
 		if err != nil {
@@ -50,13 +54,16 @@ var installCmd = &cobra.Command{
 		}
 		kubecf.Eirini = eirini
 		kubecf.Timeout = 10000
+		kubecf.Ingress = ingress
 		err = inst.Install(kubecf, *cluster)
 		if err != nil {
 			fmt.Println(err)
-			err = inst.Delete(kubecf, *cluster)
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
+			if rollback {
+				emoji.Println(":x: Deployment failed, deleting deployment")
+				err = inst.Delete(kubecf, *cluster)
+				if err != nil {
+					fmt.Println(err)
+				}
 			}
 			os.Exit(1)
 		}
@@ -65,6 +72,8 @@ var installCmd = &cobra.Command{
 
 func init() {
 	installCmd.Flags().Bool("eirini", false, "Enable/Disable Eirini")
+	installCmd.Flags().Bool("rollback", false, "Automatically rollback a failed deployment")
+	installCmd.Flags().Bool("ingress", false, "Enable ingress")
 
 	RootCmd.AddCommand(installCmd)
 }
