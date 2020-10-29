@@ -10,6 +10,7 @@ require (
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/imdario/mergo v0.3.8
+	github.com/jedib0t/go-pretty v4.3.0+incompatible
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/karrick/godirwalk v1.16.1
 	github.com/kyokomi/emoji v2.2.4+incompatible

@@ -10,6 +10,7 @@ type Installer struct {
 
 type Deployment interface {
 	Deploy(Cluster) error
+	Upgrade(Cluster) error
 	SetDomain(d string)
 	GetDomain() string
 	Delete(Cluster) error
@@ -36,4 +37,8 @@ func (i *Installer) Install(d Deployment, cluster Cluster) error {
 
 func (i *Installer) Delete(d Deployment, cluster Cluster) error {
 	return d.Delete(cluster)
+}
+
+func (i *Installer) Upgrade(d Deployment, cluster Cluster) error {
+	return d.Upgrade(cluster)
 }

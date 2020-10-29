@@ -37,7 +37,7 @@ var PasswordCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		kubecf, err := deployments.GetKubeCF(args[0])
+		kubecf, err := deployments.GlobalCatalog.GetKubeCF(args[0])
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

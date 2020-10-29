@@ -21,21 +21,31 @@ import (
 	"github.com/mudler/kubecfctl/pkg/deployments"
 	kubernetes "github.com/mudler/kubecfctl/pkg/kubernetes"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-var deleteCmd = &cobra.Command{
-	Use:     "delete [VERSION]",
-	Short:   "deletes kubecf",
+var upgradeCmd = &cobra.Command{
+	Use:     "upgrade [COMPONENT] [VERSION]",
+	Short:   "upgrades the component to that version",
 	Aliases: []string{"inst"},
-	Long:    `This command deletes kubecf in your cluster`,
+	Long: `This command upgrades the specified component in your cluster.
+
+Currently there are available two components, "kubecf" and "ingress".
+`,
+	PreRun: func(cmd *cobra.Command, args []string) {
+		viper.BindPFlag("eirini", cmd.Flags().Lookup("eirini"))
+		viper.BindPFlag("ingress", cmd.Flags().Lookup("ingress"))
+	},
 	Run: func(cmd *cobra.Command, args []string) {
+		eirini := viper.GetBool("eirini")
+		ingress := viper.GetBool("ingress")
+
 		cluster, err := kubernetes.NewCluster(os.Getenv("KUBECONFIG"))
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 		emoji.Println(cluster.GetPlatform().Describe())
-
 		var d kubernetes.Deployment
 		inst := kubernetes.NewInstaller()
 
@@ -46,6 +56,9 @@ var deleteCmd = &cobra.Command{
 				fmt.Println(err)
 				os.Exit(1)
 			}
+			kubecf.Eirini = eirini
+			kubecf.Timeout = 10000
+			kubecf.Ingress = ingress
 			d = &kubecf
 		case "nginx-ingress":
 			nginx, err := deployments.GlobalCatalog.GetNginx(args[1])
@@ -58,15 +71,18 @@ var deleteCmd = &cobra.Command{
 			fmt.Println("Invalid deployment, valid options are: kubecf, nginx-ingress")
 		}
 
-		err = inst.Delete(d, *cluster)
+		err = inst.Upgrade(d, *cluster)
 		if err != nil {
 			fmt.Println(err)
+
 			os.Exit(1)
 		}
 	},
 }
 
 func init() {
+	upgradeCmd.Flags().Bool("eirini", false, "Enable/Disable Eirini")
+	upgradeCmd.Flags().Bool("ingress", false, "Enable ingress")
 
-	RootCmd.AddCommand(deleteCmd)
+	RootCmd.AddCommand(upgradeCmd)
 }

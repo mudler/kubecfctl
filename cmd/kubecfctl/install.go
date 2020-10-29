@@ -25,10 +25,13 @@ import (
 )
 
 var installCmd = &cobra.Command{
-	Use:     "install [VERSION]",
-	Short:   "installs kubecf",
+	Use:     "install [COMPONENT] [VERSION]",
+	Short:   "installs the component to that version",
 	Aliases: []string{"inst"},
-	Long:    `This command installs kubecf in your cluster`,
+	Long: `This command installs the specified component in your cluster.
+
+Currently there are available two components, "kubecf" and "ingress".
+`,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viper.BindPFlag("eirini", cmd.Flags().Lookup("eirini"))
 		viper.BindPFlag("rollback", cmd.Flags().Lookup("rollback"))
@@ -45,22 +48,37 @@ var installCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		emoji.Println(cluster.GetPlatform().Describe())
-
+		var d kubernetes.Deployment
 		inst := kubernetes.NewInstaller()
-		kubecf, err := deployments.GetKubeCF(args[0])
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+
+		switch args[0] {
+		case "kubecf":
+			kubecf, err := deployments.GlobalCatalog.GetKubeCF(args[1])
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			kubecf.Eirini = eirini
+			kubecf.Timeout = 10000
+			kubecf.Ingress = ingress
+			d = &kubecf
+		case "nginx-ingress":
+			nginx, err := deployments.GlobalCatalog.GetNginx(args[1])
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			d = &nginx
+		default:
+			fmt.Println("Invalid deployment, valid options are: kubecf, nginx-ingress")
 		}
-		kubecf.Eirini = eirini
-		kubecf.Timeout = 10000
-		kubecf.Ingress = ingress
-		err = inst.Install(kubecf, *cluster)
+
+		err = inst.Install(d, *cluster)
 		if err != nil {
 			fmt.Println(err)
 			if rollback {
 				emoji.Println(":x: Deployment failed, deleting deployment")
-				err = inst.Delete(kubecf, *cluster)
+				err = inst.Delete(d, *cluster)
 				if err != nil {
 					fmt.Println(err)
 				}
