@@ -54,6 +54,13 @@ var deleteCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			d = &nginx
+		case "stratos":
+			stratos, err := deployments.GlobalCatalog.GetStratos(args[1])
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			d = &stratos
 		default:
 			fmt.Println("Invalid deployment, valid options are: kubecf, nginx-ingress")
 		}

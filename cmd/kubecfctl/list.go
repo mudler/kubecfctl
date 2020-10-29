@@ -14,13 +14,10 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/jedib0t/go-pretty/table"
-	"github.com/kyokomi/emoji"
 	"github.com/mudler/kubecfctl/pkg/deployments"
-	kubernetes "github.com/mudler/kubecfctl/pkg/kubernetes"
 	"github.com/spf13/cobra"
 )
 
@@ -30,38 +27,17 @@ var listCmd = &cobra.Command{
 	Aliases: []string{"inst"},
 	Long:    `This command lists available deployments`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cluster, err := kubernetes.NewCluster(os.Getenv("KUBECONFIG"))
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		emoji.Println(cluster.GetPlatform().Describe())
-
 		t := table.NewWriter()
 		t.SetOutputMirror(os.Stdout)
 		t.AppendHeader(table.Row{"Name", "Version"})
+
 		if len(args) > 0 {
-			switch args[0] {
-			case "kubecf":
-
-				for _, d := range deployments.GlobalCatalog.KubeCF {
-					t.AppendRow([]interface{}{"KubeCF", d.Version})
-				}
-
-			case "nginx-ingress":
-				for _, d := range deployments.GlobalCatalog.Nginx {
-					t.AppendRow([]interface{}{"nginx-ingresss", d.Version})
-				}
-			default:
-				fmt.Println("Invalid deployment, valid options are: kubecf, nginx-ingress")
+			for _, d := range deployments.GlobalCatalog.Search(args[0]) {
+				t.AppendRow(d.([]interface{}))
 			}
 		} else {
-
-			for _, d := range deployments.GlobalCatalog.KubeCF {
-				t.AppendRow([]interface{}{"kubecf", d.Version})
-			}
-			for _, d := range deployments.GlobalCatalog.Nginx {
-				t.AppendRow([]interface{}{"nginx-ingress", d.Version})
+			for _, d := range deployments.GlobalCatalog.GetList() {
+				t.AppendRow(d.([]interface{}))
 			}
 		}
 
