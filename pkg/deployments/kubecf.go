@@ -20,6 +20,7 @@ type KubeCF struct {
 	QuarksOperator string
 	Namespace      string
 	domain         string
+	Debug          bool
 
 	Eirini, Ingress, Autoscaler, LB bool
 	Timeout                         int
@@ -34,16 +35,16 @@ func (k KubeCF) GetDomain() string {
 }
 
 func (k KubeCF) Describe() string {
-	return emoji.Sprintf(":cloud: KubeCF version: %s\nQuarks chart: %s\nKubeCF chart: %s\n", k.Version, k.QuarksOperator, k.ChartURL)
+	return emoji.Sprintf(":cloud: KubeCF version: %s\n:clipboard:Quarks chart: %s\n:clipboard:KubeCF chart: %s\n", k.Version, k.QuarksOperator, k.ChartURL)
 }
 
 func (k KubeCF) Delete(c kubernetes.Cluster) error {
 	currentdir, _ := os.Getwd()
 
-	helpers.RunProc("kubectl delete crds boshdeployments.quarks.cloudfoundry.org", currentdir)
-	helpers.RunProc("kubectl delete crds quarksjobs.quarks.cloudfoundry.org", currentdir)
-	helpers.RunProc("kubectl delete crds quarkssecrets.quarks.cloudfoundry.org", currentdir)
-	helpers.RunProc("kubectl delete crds quarksstatefulsets.quarks.cloudfoundry.org", currentdir)
+	helpers.RunProc("kubectl delete crds boshdeployments.quarks.cloudfoundry.org", currentdir, k.Debug)
+	helpers.RunProc("kubectl delete crds quarksjobs.quarks.cloudfoundry.org", currentdir, k.Debug)
+	helpers.RunProc("kubectl delete crds quarkssecrets.quarks.cloudfoundry.org", currentdir, k.Debug)
+	helpers.RunProc("kubectl delete crds quarksstatefulsets.quarks.cloudfoundry.org", currentdir, k.Debug)
 
 	c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), k.Namespace, metav1.DeleteOptions{})
 	c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), "cf-operator", metav1.DeleteOptions{})
@@ -96,7 +97,7 @@ func (k KubeCF) applyOperator(c kubernetes.Cluster, upgrade bool) error {
 		action = "upgrade"
 	}
 
-	out, err := helpers.RunProc("helm "+action+" cf-operator --create-namespace --namespace cf-operator --wait "+k.QuarksOperator+" --set global.singleNamespace.name="+k.Namespace, currentdir)
+	out, err := helpers.RunProc("helm "+action+" cf-operator --create-namespace --namespace cf-operator --wait "+k.QuarksOperator+" --set global.singleNamespace.name="+k.Namespace, currentdir, k.Debug)
 	fmt.Println(out)
 	if err != nil {
 		return errors.New("Failed installing cf-operator")
@@ -121,7 +122,7 @@ func (k KubeCF) applyKubeCF(c kubernetes.Cluster, upgrade bool) error {
 		action = "upgrade"
 	}
 
-	_, err := helpers.RunProc("helm "+action+" kubecf --namespace "+k.Namespace+" "+k.ChartURL+" "+strings.Join(helmArgs, " "), currentdir)
+	_, err := helpers.RunProc("helm "+action+" kubecf --namespace "+k.Namespace+" "+k.ChartURL+" "+strings.Join(helmArgs, " "), currentdir, k.Debug)
 	if err != nil {
 		return errors.New("Failed installing kubecf")
 	}

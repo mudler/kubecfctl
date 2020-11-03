@@ -1,7 +1,11 @@
 package deployments
 
 import (
+	"fmt"
+	"os"
 	"strings"
+
+	kubernetes "github.com/mudler/kubecfctl/pkg/kubernetes"
 
 	"github.com/pkg/errors"
 )
@@ -102,4 +106,47 @@ func (c Catalog) Search(term string) []interface{} {
 		}
 	}
 	return res
+}
+
+type DeploymentOptions struct {
+	Eirini  bool
+	Timeout int
+	Ingress bool
+	Debug   bool
+}
+
+func (c Catalog) Deployment(name, version string, opts DeploymentOptions) (kubernetes.Deployment, error) {
+	var d kubernetes.Deployment
+	switch name {
+	case "kubecf":
+		kubecf, err := c.GetKubeCF(name)
+		if err != nil {
+			return nil, err
+		}
+		kubecf.Eirini = opts.Eirini
+		kubecf.Timeout = opts.Timeout
+		kubecf.Ingress = opts.Ingress
+		kubecf.Debug = opts.Debug
+		d = &kubecf
+	case "nginx-ingress":
+		nginx, err := c.GetNginx(name)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		nginx.Debug = opts.Debug
+		d = &nginx
+	case "stratos":
+		stratos, err := c.GetStratos(name)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		stratos.Debug = opts.Debug
+		d = &stratos
+	default:
+		return nil, errors.New("Invalid deployment")
+	}
+
+	return d, nil
 }

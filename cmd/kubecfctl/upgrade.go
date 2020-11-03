@@ -35,10 +35,12 @@ Currently there are available two components, "kubecf" and "ingress".
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viper.BindPFlag("eirini", cmd.Flags().Lookup("eirini"))
 		viper.BindPFlag("ingress", cmd.Flags().Lookup("ingress"))
+		viper.BindPFlag("debug", cmd.Flags().Lookup("debug"))
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		eirini := viper.GetBool("eirini")
 		ingress := viper.GetBool("ingress")
+		debug := viper.GetBool("debug")
 
 		cluster, err := kubernetes.NewCluster(os.Getenv("KUBECONFIG"))
 		if err != nil {
@@ -46,36 +48,13 @@ Currently there are available two components, "kubecf" and "ingress".
 			os.Exit(1)
 		}
 		emoji.Println(cluster.GetPlatform().Describe())
-		var d kubernetes.Deployment
 		inst := kubernetes.NewInstaller()
 
-		switch args[0] {
-		case "kubecf":
-			kubecf, err := deployments.GlobalCatalog.GetKubeCF(args[1])
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-			kubecf.Eirini = eirini
-			kubecf.Timeout = 10000
-			kubecf.Ingress = ingress
-			d = &kubecf
-		case "nginx-ingress":
-			nginx, err := deployments.GlobalCatalog.GetNginx(args[1])
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-			d = &nginx
-		case "stratos":
-			stratos, err := deployments.GlobalCatalog.GetStratos(args[1])
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-			d = &stratos
-		default:
-			fmt.Println("Invalid deployment, valid options are: kubecf, nginx-ingress")
+		opt := deployments.DeploymentOptions{Eirini: eirini, Timeout: 1000, Ingress: ingress, Debug: debug}
+		d, err := deployments.GlobalCatalog.Deployment(args[1], args[2], opt)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
 		}
 
 		err = inst.Upgrade(d, *cluster)

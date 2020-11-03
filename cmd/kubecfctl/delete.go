@@ -36,33 +36,13 @@ var deleteCmd = &cobra.Command{
 		}
 		emoji.Println(cluster.GetPlatform().Describe())
 
-		var d kubernetes.Deployment
 		inst := kubernetes.NewInstaller()
 
-		switch args[0] {
-		case "kubecf":
-			kubecf, err := deployments.GlobalCatalog.GetKubeCF(args[1])
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-			d = &kubecf
-		case "nginx-ingress":
-			nginx, err := deployments.GlobalCatalog.GetNginx(args[1])
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-			d = &nginx
-		case "stratos":
-			stratos, err := deployments.GlobalCatalog.GetStratos(args[1])
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-			d = &stratos
-		default:
-			fmt.Println("Invalid deployment, valid options are: kubecf, nginx-ingress")
+		opt := deployments.DeploymentOptions{}
+		d, err := deployments.GlobalCatalog.Deployment(args[1], args[2], opt)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
 		}
 
 		err = inst.Delete(d, *cluster)

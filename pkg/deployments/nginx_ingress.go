@@ -19,6 +19,8 @@ type NginxIngress struct {
 	Namespace string
 	domain    string
 
+	Debug bool
+
 	LB      bool
 	Timeout int
 }
@@ -32,7 +34,7 @@ func (k NginxIngress) GetDomain() string {
 }
 
 func (k NginxIngress) Describe() string {
-	return emoji.Sprintf(":cloud: NginxIngress version: %s\nNginxIngress chart: %s\n", k.Version, k.ChartURL)
+	return emoji.Sprintf(":cloud: NginxIngress version: %s\n:clipboard:NginxIngress chart: %s\n", k.Version, k.ChartURL)
 }
 
 func (k NginxIngress) Delete(c kubernetes.Cluster) error {
@@ -58,7 +60,7 @@ func (k NginxIngress) apply(c kubernetes.Cluster, upgrade bool) error {
 		}
 	}
 
-	if _, err := helpers.RunProc("helm "+action+" nginx-ingress --create-namespace --wait --namespace "+k.Namespace+" "+k.ChartURL+" "+strings.Join(helmArgs, " "), currentdir); err != nil {
+	if _, err := helpers.RunProc("helm "+action+" nginx-ingress --create-namespace --wait --namespace "+k.Namespace+" "+k.ChartURL+" "+strings.Join(helmArgs, " "), currentdir, k.Debug); err != nil {
 		return errors.New("Failed installing NginxIngress")
 	}
 

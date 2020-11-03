@@ -61,6 +61,8 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+	pflags := RootCmd.PersistentFlags()
+	pflags.BoolP("debug", "d", false, "verbose output")
 }
 
 // initConfig reads in config file and ENV variables if set.

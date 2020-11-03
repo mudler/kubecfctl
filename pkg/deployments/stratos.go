@@ -18,6 +18,7 @@ type Stratos struct {
 	ChartURL  string
 	Namespace string
 	domain    string
+	Debug     bool
 
 	LB, Ingress bool
 	Timeout     int
@@ -32,7 +33,7 @@ func (k Stratos) GetDomain() string {
 }
 
 func (k Stratos) Describe() string {
-	return emoji.Sprintf(":cloud: Stratos version: %s\nStratos chart: %s\n", k.Version, k.ChartURL)
+	return emoji.Sprintf(":cloud: Stratos version: %s\n:clipboard:Stratos chart: %s\n", k.Version, k.ChartURL)
 }
 
 func (k Stratos) Delete(c kubernetes.Cluster) error {
@@ -63,7 +64,7 @@ func (k Stratos) apply(c kubernetes.Cluster, upgrade bool) error {
 		helmArgs = append(helmArgs, "--set console.service.ingress.enabled=true")
 	}
 
-	if _, err := helpers.RunProc("helm "+action+" stratos --create-namespace --wait --namespace "+k.Namespace+" "+k.ChartURL+" "+strings.Join(helmArgs, " "), currentdir); err != nil {
+	if _, err := helpers.RunProc("helm "+action+" stratos --create-namespace --wait --namespace "+k.Namespace+" "+k.ChartURL+" "+strings.Join(helmArgs, " "), currentdir, k.Debug); err != nil {
 		return errors.New("Failed installing Stratos")
 	}
 
