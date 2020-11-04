@@ -34,7 +34,7 @@ func (k NginxIngress) GetDomain() string {
 }
 
 func (k NginxIngress) Describe() string {
-	return emoji.Sprintf(":cloud: NginxIngress version: %s\n:clipboard:NginxIngress chart: %s\n", k.Version, k.ChartURL)
+	return emoji.Sprintf(":cloud:NginxIngress version: %s\n:clipboard:NginxIngress chart: %s", k.Version, k.ChartURL)
 }
 
 func (k NginxIngress) Delete(c kubernetes.Cluster) error {
@@ -78,7 +78,7 @@ func (k NginxIngress) Deploy(c kubernetes.Cluster) error {
 		return errors.New("Namespace " + k.Namespace + " present already, run 'kubecfctl nginx-ingress delete " + k.Version + "' first")
 	}
 
-	emoji.Println(":cloud: Deploying Nginx Ingress")
+	emoji.Println(":ship:Deploying Nginx Ingress")
 	return k.apply(c, false)
 }
 
@@ -92,6 +92,6 @@ func (k NginxIngress) Upgrade(c kubernetes.Cluster) error {
 		return errors.New("Namespace " + k.Namespace + " not present")
 	}
 
-	emoji.Println(":cloud: Upgrade Nginx Ingress")
+	emoji.Println(":ship:Upgrade Nginx Ingress")
 	return k.apply(c, true)
 }

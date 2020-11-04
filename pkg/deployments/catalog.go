@@ -1,8 +1,6 @@
 package deployments
 
 import (
-	"fmt"
-	"os"
 	"strings"
 
 	kubernetes "github.com/mudler/kubecfctl/pkg/kubernetes"
@@ -109,17 +107,37 @@ func (c Catalog) Search(term string) []interface{} {
 }
 
 type DeploymentOptions struct {
-	Eirini  bool
-	Timeout int
-	Ingress bool
-	Debug   bool
+	Eirini              bool
+	Timeout             int
+	Ingress             bool
+	Debug               bool
+	Version             string
+	ChartURL, QuarksURL string
 }
 
-func (c Catalog) Deployment(name, version string, opts DeploymentOptions) (kubernetes.Deployment, error) {
-	var d kubernetes.Deployment
+func (c Catalog) Deployment(name string, opts DeploymentOptions) (kubernetes.Deployment, error) {
 	switch name {
 	case "kubecf":
-		kubecf, err := c.GetKubeCF(name)
+		if opts.ChartURL != "" || opts.QuarksURL != "" { // Return custom version specified
+			return &KubeCF{
+				Version:        "Custom",
+				ChartURL:       opts.ChartURL,
+				Namespace:      "kubecf",
+				QuarksOperator: opts.QuarksURL,
+				Eirini:         opts.Eirini,
+				Timeout:        opts.Timeout,
+				Ingress:        opts.Ingress,
+				Debug:          opts.Debug,
+			}, nil
+		}
+		if len(opts.Version) == 0 { // Get default version if not specified
+			kubecf, err := c.GetKubeCF("2.6.1")
+			if err != nil {
+				return nil, err
+			}
+			return &kubecf, nil
+		}
+		kubecf, err := c.GetKubeCF(opts.Version)
 		if err != nil {
 			return nil, err
 		}
@@ -127,26 +145,54 @@ func (c Catalog) Deployment(name, version string, opts DeploymentOptions) (kuber
 		kubecf.Timeout = opts.Timeout
 		kubecf.Ingress = opts.Ingress
 		kubecf.Debug = opts.Debug
-		d = &kubecf
+		return &kubecf, nil
 	case "nginx-ingress":
-		nginx, err := c.GetNginx(name)
+		if opts.ChartURL != "" {
+			nginx := NginxIngress{
+				Version:   "Custom",
+				ChartURL:  opts.ChartURL,
+				Namespace: "nginx-ingress",
+				Debug:     opts.Debug,
+			}
+			return &nginx, nil
+		}
+		if len(opts.Version) == 0 {
+			nginx, err := c.GetNginx("3.7.1")
+			if err != nil {
+				return nil, err
+			}
+			return &nginx, nil
+		}
+		nginx, err := c.GetNginx(opts.Version)
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return nil, err
 		}
 		nginx.Debug = opts.Debug
-		d = &nginx
+		return &nginx, nil
 	case "stratos":
-		stratos, err := c.GetStratos(name)
+		if opts.ChartURL != "" {
+			stratos := Stratos{
+				Version:   "Custom",
+				ChartURL:  opts.ChartURL,
+				Namespace: "stratos",
+				Debug:     opts.Debug,
+			}
+			return &stratos, nil
+		}
+		if len(opts.Version) == 0 {
+			stratos, err := c.GetStratos("4.2.1")
+			if err != nil {
+				return nil, err
+			}
+			return &stratos, nil
+		}
+		stratos, err := c.GetStratos(opts.Version)
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return nil, err
 		}
 		stratos.Debug = opts.Debug
-		d = &stratos
+		return &stratos, nil
 	default:
 		return nil, errors.New("Invalid deployment")
 	}
-
-	return d, nil
 }

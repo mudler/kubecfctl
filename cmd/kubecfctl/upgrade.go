@@ -36,11 +36,17 @@ Currently there are available two components, "kubecf" and "ingress".
 		viper.BindPFlag("eirini", cmd.Flags().Lookup("eirini"))
 		viper.BindPFlag("ingress", cmd.Flags().Lookup("ingress"))
 		viper.BindPFlag("debug", cmd.Flags().Lookup("debug"))
+		viper.BindPFlag("version", cmd.Flags().Lookup("version"))
+		viper.BindPFlag("chart", cmd.Flags().Lookup("chart"))
+		viper.BindPFlag("quarks-chart", cmd.Flags().Lookup("quarks-chart"))
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		eirini := viper.GetBool("eirini")
 		ingress := viper.GetBool("ingress")
 		debug := viper.GetBool("debug")
+		version := viper.GetString("version")
+		chartURL := viper.GetString("chart")
+		quarksChart := viper.GetString("quarks-chart")
 
 		cluster, err := kubernetes.NewCluster(os.Getenv("KUBECONFIG"))
 		if err != nil {
@@ -50,8 +56,15 @@ Currently there are available two components, "kubecf" and "ingress".
 		emoji.Println(cluster.GetPlatform().Describe())
 		inst := kubernetes.NewInstaller()
 
-		opt := deployments.DeploymentOptions{Eirini: eirini, Timeout: 1000, Ingress: ingress, Debug: debug}
-		d, err := deployments.GlobalCatalog.Deployment(args[1], args[2], opt)
+		d, err := deployments.GlobalCatalog.Deployment(args[0], deployments.DeploymentOptions{
+			Version:   version,
+			Eirini:    eirini,
+			Timeout:   1000,
+			Ingress:   ingress,
+			Debug:     debug,
+			ChartURL:  chartURL,
+			QuarksURL: quarksChart,
+		})
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -69,6 +82,9 @@ Currently there are available two components, "kubecf" and "ingress".
 func init() {
 	upgradeCmd.Flags().Bool("eirini", false, "Enable/Disable Eirini")
 	upgradeCmd.Flags().Bool("ingress", false, "Enable ingress")
+	upgradeCmd.Flags().String("chart", "", "Chart URL (tgz)")
+	upgradeCmd.Flags().String("quarks-chart", "", "Quarks Chart URL (tgz)")
+	upgradeCmd.Flags().String("version", "", "Component version to deploy")
 
 	RootCmd.AddCommand(upgradeCmd)
 }

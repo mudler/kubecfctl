@@ -14,7 +14,7 @@ type k3s struct {
 }
 
 func (k *k3s) Describe() string {
-	return emoji.Sprintf(":anchor: Detected kubernetes platform: %s\n:earth_americas: ExternalIPs: %s\n:curly_loop:InternalIPs: %s\n", k.String(), k.ExternalIPs(), k.InternalIPs)
+	return emoji.Sprintf(":anchor: Detected kubernetes platform: %s\n:earth_americas:ExternalIPs: %s\n:curly_loop:InternalIPs: %s", k.String(), k.ExternalIPs(), k.InternalIPs)
 }
 
 func (k *k3s) String() string { return "k3s" }

@@ -35,7 +35,7 @@ func (k KubeCF) GetDomain() string {
 }
 
 func (k KubeCF) Describe() string {
-	return emoji.Sprintf(":cloud: KubeCF version: %s\n:clipboard:Quarks chart: %s\n:clipboard:KubeCF chart: %s\n", k.Version, k.QuarksOperator, k.ChartURL)
+	return emoji.Sprintf(":cloud:KubeCF version: %s\n:clipboard:Quarks chart: %s\n:clipboard:KubeCF chart: %s", k.Version, k.QuarksOperator, k.ChartURL)
 }
 
 func (k KubeCF) Delete(c kubernetes.Cluster) error {
@@ -66,7 +66,6 @@ func (k KubeCF) genHelmSettings(c kubernetes.Cluster) []string {
 	helmArgs = append(helmArgs, "--set system_domain="+k.domain)
 
 	if k.Eirini {
-		fmt.Println("Deploying kubecf with Eirini enabled")
 		helmArgs = append(helmArgs, "--set features.eirini.enabled=true")
 		helmArgs = append(helmArgs, "--set install_stacks[0]=sle15")
 	}
@@ -106,7 +105,7 @@ func (k KubeCF) applyOperator(c kubernetes.Cluster, upgrade bool) error {
 	if err := c.WaitForPodBySelectorRunning("cf-operator", "", 900); err != nil {
 		return errors.Wrap(err, "failed waiting")
 	}
-	emoji.Println(":heavy_check_mark: Quarks Operator deployed correctly to the :rainbow: :cloud:")
+	emoji.Println(":heavy_check_mark:Quarks Operator deployed correctly to the :rainbow: :cloud:")
 
 	return nil
 }
@@ -139,7 +138,7 @@ func (k KubeCF) applyKubeCF(c kubernetes.Cluster, upgrade bool) error {
 	if err != nil {
 		return errors.Wrap(err, "failed waiting for kubecf to be ready")
 	}
-	emoji.Println(":heavy_check_mark: KubeCF deployed correctly to the :rainbow: :cloud:")
+	emoji.Println(":heavy_check_mark:KubeCF deployed correctly to the :rainbow: :cloud:")
 	return nil
 }
 
@@ -158,7 +157,7 @@ func (k KubeCF) Deploy(c kubernetes.Cluster) error {
 		return errors.Wrap(err, "while deploying quarks operator")
 	}
 
-	emoji.Println(":ship: Deploying kubecf")
+	emoji.Println(":ship:Deploying kubecf")
 
 	if err := k.applyKubeCF(c, false); err != nil {
 		return errors.Wrap(err, "while deploying quarks operator")
@@ -169,12 +168,12 @@ func (k KubeCF) Deploy(c kubernetes.Cluster) error {
 		return errors.Wrap(err, "couldn't find password")
 	}
 
-	emoji.Println(":lock: CF Deployment ready, now you can login with: cf login --skip-ssl-validation -a https://api." + k.domain + " -u admin -p " + string(pwd))
+	emoji.Println(":lock:CF Deployment ready, now you can login with: cf login --skip-ssl-validation -a https://api." + k.domain + " -u admin -p " + string(pwd))
 	return nil
 }
 
 func (k KubeCF) Upgrade(c kubernetes.Cluster) error {
-	emoji.Println(":ship: Upgrading Quarks Operator")
+	emoji.Println(":ship:Upgrading Quarks Operator")
 	_, err := c.Kubectl.CoreV1().Namespaces().Get(
 		context.Background(),
 		"cf-operator",
@@ -187,7 +186,7 @@ func (k KubeCF) Upgrade(c kubernetes.Cluster) error {
 	if err := k.applyOperator(c, true); err != nil {
 		return errors.Wrap(err, "while deploying quarks operator")
 	}
-	emoji.Println(":ship: Upgrading kubecf")
+	emoji.Println(":ship:Upgrading kubecf")
 
 	if err := k.applyKubeCF(c, true); err != nil {
 		return errors.Wrap(err, "while deploying quarks operator")
@@ -198,6 +197,6 @@ func (k KubeCF) Upgrade(c kubernetes.Cluster) error {
 		return errors.Wrap(err, "couldn't find password")
 	}
 
-	emoji.Println(":lock: CF Deployment ready, now you can login with: cf login --skip-ssl-validation -a https://api." + k.domain + " -u admin -p " + string(pwd))
+	emoji.Println(":lock:CF Deployment ready, now you can login with: cf login --skip-ssl-validation -a https://api." + k.domain + " -u admin -p " + string(pwd))
 	return nil
 }

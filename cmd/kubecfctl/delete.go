@@ -21,30 +21,51 @@ import (
 	"github.com/mudler/kubecfctl/pkg/deployments"
 	kubernetes "github.com/mudler/kubecfctl/pkg/kubernetes"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var deleteCmd = &cobra.Command{
 	Use:     "delete [VERSION]",
-	Short:   "deletes kubecf",
+	Short:   "deletes a deployment",
 	Aliases: []string{"inst"},
-	Long:    `This command deletes kubecf in your cluster`,
+	Long:    `This command deletes a deployment in your cluster`,
+	PreRun: func(cmd *cobra.Command, args []string) {
+		viper.BindPFlag("eirini", cmd.Flags().Lookup("eirini"))
+		viper.BindPFlag("ingress", cmd.Flags().Lookup("ingress"))
+		viper.BindPFlag("debug", cmd.Flags().Lookup("debug"))
+		viper.BindPFlag("version", cmd.Flags().Lookup("version"))
+		viper.BindPFlag("chart", cmd.Flags().Lookup("chart"))
+		viper.BindPFlag("quarks-chart", cmd.Flags().Lookup("quarks-chart"))
+	},
 	Run: func(cmd *cobra.Command, args []string) {
+		eirini := viper.GetBool("eirini")
+		ingress := viper.GetBool("ingress")
+		debug := viper.GetBool("debug")
+		version := viper.GetString("version")
+		chartURL := viper.GetString("chart")
+		quarksChart := viper.GetString("quarks-chart")
+
 		cluster, err := kubernetes.NewCluster(os.Getenv("KUBECONFIG"))
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 		emoji.Println(cluster.GetPlatform().Describe())
-
 		inst := kubernetes.NewInstaller()
 
-		opt := deployments.DeploymentOptions{}
-		d, err := deployments.GlobalCatalog.Deployment(args[1], args[2], opt)
+		d, err := deployments.GlobalCatalog.Deployment(args[0], deployments.DeploymentOptions{
+			Version:   version,
+			Eirini:    eirini,
+			Timeout:   1000,
+			Ingress:   ingress,
+			Debug:     debug,
+			ChartURL:  chartURL,
+			QuarksURL: quarksChart,
+		})
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-
 		err = inst.Delete(d, *cluster)
 		if err != nil {
 			fmt.Println(err)
@@ -54,6 +75,10 @@ var deleteCmd = &cobra.Command{
 }
 
 func init() {
-
+	deleteCmd.Flags().Bool("eirini", false, "Enable/Disable Eirini")
+	deleteCmd.Flags().Bool("ingress", false, "Enable ingress")
+	deleteCmd.Flags().String("chart", "", "Chart URL (tgz)")
+	deleteCmd.Flags().String("quarks-chart", "", "Quarks Chart URL (tgz)")
+	deleteCmd.Flags().String("version", "", "Component version to deploy")
 	RootCmd.AddCommand(deleteCmd)
 }

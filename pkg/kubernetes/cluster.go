@@ -139,8 +139,6 @@ func (c *Cluster) ListPods(namespace, selector string) (*v1.PodList, error) {
 // Wait up to timeout seconds for all pods in 'namespace' with given 'selector' to enter running state.
 // Returns an error if no pods are found or not all discovered pods enter running state.
 func (c *Cluster) WaitUntilPodBySelectorExist(namespace, selector string, timeout int) error {
-	//emoji.Println("waiting for pod with selector " + selector + " to exists")
-
 	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond) // Build our new spinner
 	s.Start()                                                    // Start the spinner
 	defer s.Stop()
@@ -159,7 +157,6 @@ func (c *Cluster) WaitForPodBySelectorRunning(namespace, selector string, timeou
 	if err != nil {
 		return errors.Wrapf(err, "failed listingpods with selector %s", selector)
 	}
-	//emoji.Println("Found ", len(podList.Items), " total pods")
 
 	if len(podList.Items) == 0 {
 		return fmt.Errorf("no pods in %s with selector %s", namespace, selector)
@@ -167,7 +164,6 @@ func (c *Cluster) WaitForPodBySelectorRunning(namespace, selector string, timeou
 
 	for _, pod := range podList.Items {
 		s.Suffix = emoji.Sprintf(" Waiting for pod %s to be running in %s ... :zzz: ", pod.Name, namespace)
-		//emoji.Println("waiting for " + pod.Name)
 		if err := c.WaitForPodRunning(namespace, pod.Name, time.Duration(timeout)*time.Second); err != nil {
 			return errors.Wrapf(err, "failed waiting for %s", pod.Name)
 		}

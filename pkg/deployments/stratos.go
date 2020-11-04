@@ -33,7 +33,7 @@ func (k Stratos) GetDomain() string {
 }
 
 func (k Stratos) Describe() string {
-	return emoji.Sprintf(":cloud: Stratos version: %s\n:clipboard:Stratos chart: %s\n", k.Version, k.ChartURL)
+	return emoji.Sprintf(":cloud:Stratos version: %s\n:clipboard:Stratos chart: %s", k.Version, k.ChartURL)
 }
 
 func (k Stratos) Delete(c kubernetes.Cluster) error {
@@ -82,7 +82,7 @@ func (k Stratos) Deploy(c kubernetes.Cluster) error {
 		return errors.New("Namespace " + k.Namespace + " present already, run 'kubecfctl nginx-ingress delete " + k.Version + "' first")
 	}
 
-	emoji.Println(":cloud: Deploying Stratos")
+	emoji.Println(":ship:Deploying Stratos")
 	return k.apply(c, false)
 }
 
@@ -96,6 +96,6 @@ func (k Stratos) Upgrade(c kubernetes.Cluster) error {
 		return errors.New("Namespace " + k.Namespace + " not present")
 	}
 
-	emoji.Println(":cloud: Upgrade Stratos")
+	emoji.Println(":ship:Upgrade Stratos")
 	return k.apply(c, true)
 }

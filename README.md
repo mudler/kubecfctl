@@ -1,2 +1,2 @@
 # kubecfctl
-KubeCF CLI installer tool
+unofficial KubeCF CLI installer tool
