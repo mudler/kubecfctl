@@ -1,0 +1,122 @@
+#!/bin/bash
+
+#########################################
+### kubecfctl on k3s 
+### Adaptation of https://github.com/kf5i/k3ai for KubeCF
+### from:
+### Alessandro Festa @bringyourownai
+### Gabriele Santomaggio @gsantomaggio
+### rewrite by: Ettore Di Giacinto @mudler
+######################################### 
+
+INTERNAL_INSTALL_K3S_EXEC=""
+INTERNAL_INSTALL_KUBECFCTL_EXEC="${INTERNAL_INSTALL_KUBECFCTL_EXEC:-kubecf}"
+KUBECFCTL_VERSION="${KUBECFCTL_VERSION:-0.1}"
+HELM_VERSION="${HELM_VERSION:-3.4.0}"
+
+setup_env(){
+ # --- use binary install directory if defined or create default ---
+ if [ -n "${INSTALL_K3S_BIN_DIR}" ]; then
+    BIN_DIR=${INSTALL_K3S_BIN_DIR}
+ else
+    BIN_DIR=/usr/local/bin
+ fi
+ export PATH=$PATH:$BIN_DIR
+}
+
+info()
+{
+    echo '[INFO] ' "$@"
+}
+
+infoL()
+{
+    echo -en '[INFO] ' "$@\n"
+}
+
+wait() 
+{
+status=1
+infoL "Testing.." $1.$2  
+while [ : ]
+  do
+    k3s kubectl wait --for condition=$4 --timeout=5s $3 -l  $1   -n $2
+    status=$?
+    
+    if [ $status -ne 0 ]
+    then 
+      infoL "$1 isn't ready yet. This may take a few minutes..."
+    else
+      break  
+    fi 
+  done
+}
+
+wait_k3s(){
+    info "Waiting k3s"
+    waiting_pod_array=("k8s-app=kube-dns;kube-system;deploy;available" 
+                       "k8s-app=metrics-server;kube-system;deploy;available"
+                       "beta.kubernetes.io/instance-type=k3s;default;nodes;ready"
+                       )
+
+    for i in "${waiting_pod_array[@]}"; do 
+      echo "$i"; 
+      IFS=';' read -ra VALUES <<< "$i"
+        wait "${VALUES[0]}" "${VALUES[1]}" "${VALUES[2]}" "${VALUES[3]}" "${VALUES[4]}"
+    done
+
+    until  k3s kubectl get nodes -A -o=custom-columns='DATA:status.addresses[*].type' | grep ExternalIP; do
+      sleep 1
+    done
+}
+
+k3s_install_service()
+{
+  info "Installing k3s service with the following parameters:" "${INSTALL_K3S_EXEC} ${INTERNAL_INSTALL_K3S_EXEC}"
+  curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" INSTALL_K3S_EXEC="${INSTALL_K3S_EXEC} ${INTERNAL_INSTALL_K3S_EXEC}"  sh -s -
+  export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+  wait_k3s
+}
+
+default_installation(){
+    info "Installing kubecfctl and helm"
+    # grab kubecfctl and helm
+    curl -L -s https://github.com/mudler/kubecfctl/releases/download/$KUBECFCTL_VERSION/kubecfctl-$KUBECFCTL_VERSION-linux-amd64 -o $BIN_DIR/kubecfctl
+    chmod +x $BIN_DIR/kubecfctl
+    curl -L -s https://get.helm.sh/helm-v$HELM_VERSION-linux-amd64.tar.gz | tar xz
+    mv linux-amd64/helm $BIN_DIR/helm
+    chmod +x $BIN_DIR/helm
+    rm -rf linux-amd64
+
+    cat << EOF > $BIN_DIR/kubecfctl-uninstall.sh
+#!/bin/bash
+set -x
+[ \$(id -u) -eq 0 ] || exec sudo \$0 \$@
+export PATH=\$PATH:/usr/local/bin
+
+rm -rf $BIN_DIR/helm
+rm -rf $BIN_DIR/kubecfctl
+rm -rf $BIN_DIR/kubecfctl-uninstall.sh
+k3s-uninstall.sh
+EOF
+    chmod +x $BIN_DIR/kubecfctl-uninstall.sh
+    k3s_install_service
+    kubecfctl install $INTERNAL_INSTALL_KUBECFCTL_EXEC
+}
+
+main() {
+    [ $(id -u) -eq 0 ] || exec sudo -E bash $0 $@
+    setup_env 
+
+    default_installation  
+}
+
+if [[ "${OSTYPE/-*}" != "linux" ]]; then
+  info "kubecfctl on k3s works only on Linux"
+else
+  main "$@"
+
+  info "kubecfctl on k3s setup finished"
+  info $MESSAGE
+  info "Check the nodes status using: k3s kubectl get node"
+fi
