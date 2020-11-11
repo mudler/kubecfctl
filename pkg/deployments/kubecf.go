@@ -114,7 +114,7 @@ func (k KubeCF) applyKubeCF(namespace, domain string, c kubernetes.Cluster, upgr
 		action = "upgrade"
 	}
 	if !psp {
-		helmArgs = append(helmArgs, "kube.psp.default=kubecf-default")
+		helmArgs = append(helmArgs, "--set kube.psp.default=kubecf-default")
 	}
 
 	out, err := helpers.RunProc("helm "+action+" kubecf --namespace "+namespace+" "+k.ChartURL+" "+strings.Join(helmArgs, " "), currentdir, k.Debug)
