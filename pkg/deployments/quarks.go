@@ -89,7 +89,7 @@ func (q Quarks) prepareAdditionalNamespace(c kubernetes.Cluster, namespace strin
 				Name: namespace,
 				Labels: map[string]string{
 					"quarks.cloudfoundry.org/qjob-service-account": saName,
-					"quarks.cloudfoundry.org/monitored":            q.Namespace,
+					"quarks.cloudfoundry.org/monitored":            "cfo",
 				},
 			},
 		},
