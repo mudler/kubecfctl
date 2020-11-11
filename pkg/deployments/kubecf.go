@@ -63,6 +63,9 @@ func (k KubeCF) Delete(c kubernetes.Cluster) error {
 	c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), k.Namespace, metav1.DeleteOptions{})
 	c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), "eirini", metav1.DeleteOptions{})
 	helpers.RunProc("kubectl delete psp kubecf-default", currentdir, k.Debug)
+	// workaround for: https://github.com/cloudfoundry-incubator/kubecf/issues/1582
+	helpers.RunProc("kubectl delete clusterrolebinding eirini-cluster-rolebinding", currentdir, k.Debug)
+	helpers.RunProc("kubectl delete clusterrole eirini-cluster-role", currentdir, k.Debug)
 
 	return nil
 }
