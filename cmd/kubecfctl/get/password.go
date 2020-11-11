@@ -43,7 +43,7 @@ var PasswordCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		pwd, err := kubecf.GetPassword(*cluster)
+		pwd, err := kubecf.GetPassword(kubecf.Namespace, *cluster)
 		if err != nil {
 			return errors.Wrap(err, "couldn't find password secret")
 		}

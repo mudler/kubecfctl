@@ -8,10 +8,15 @@ import (
 	"github.com/pkg/errors"
 )
 
+type Deployment interface {
+	GetVersion() string
+}
 type Catalog struct {
 	Nginx   []NginxIngress
 	KubeCF  []KubeCF
 	Stratos []Stratos
+	Carrier []Carrier
+	Quarks  []Quarks
 }
 
 var GlobalCatalog = Catalog{
@@ -31,18 +36,25 @@ var GlobalCatalog = Catalog{
 	},
 	KubeCF: []KubeCF{
 		{
-			Version:        "2.6.1",
-			ChartURL:       "https://github.com/cloudfoundry-incubator/kubecf/releases/download/v2.6.1/kubecf-v2.6.1.tgz",
-			Namespace:      "kubecf",
-			QuarksOperator: "https://s3.amazonaws.com/cf-operators/release/helm-charts/cf-operator-6.1.17%2B0.gec409fd7.tgz",
+			Version:       "2.6.1",
+			ChartURL:      "https://github.com/cloudfoundry-incubator/kubecf/releases/download/v2.6.1/kubecf-v2.6.1.tgz",
+			Namespace:     "kubecf",
+			quarksVersion: "6.1.17",
 		},
 		{
-			Version:        "2.5.8",
-			ChartURL:       "https://github.com/cloudfoundry-incubator/kubecf/releases/download/v2.5.8/kubecf-v2.5.8.tgz",
-			Namespace:      "kubecf",
-			QuarksOperator: "https://github.com/cloudfoundry-incubator/quarks-operator/releases/download/v6.1.17/cf-operator-6.1.17+0.gec409fd7.tgz",
+			Version:       "2.5.8",
+			ChartURL:      "https://github.com/cloudfoundry-incubator/kubecf/releases/download/v2.5.8/kubecf-v2.5.8.tgz",
+			Namespace:     "kubecf",
+			quarksVersion: "6.1.17",
 		},
 	},
+
+	Quarks: []Quarks{{
+		Version:   "6.1.17",
+		Namespace: "kubecf",
+		ChartURL:  "https://s3.amazonaws.com/cf-operators/release/helm-charts/cf-operator-6.1.17%2B0.gec409fd7.tgz",
+	}},
+	Carrier: []Carrier{{Version: "master", ChartURL: "https://github.com/SUSE/carrier", quarksVersion: "6.1.17"}},
 }
 
 func (c Catalog) GetKubeCF(version string) (KubeCF, error) {
@@ -51,7 +63,25 @@ func (c Catalog) GetKubeCF(version string) (KubeCF, error) {
 			return r, nil
 		}
 	}
-	return KubeCF{}, errors.New("No version found")
+	return KubeCF{}, errors.New("No kubecf version found")
+}
+
+func (c Catalog) GetCarrier(version string) (Carrier, error) {
+	for _, r := range c.Carrier {
+		if r.Version == version {
+			return r, nil
+		}
+	}
+	return Carrier{}, errors.New("No carrier version found")
+}
+
+func (c Catalog) GetQuarks(version string) (Quarks, error) {
+	for _, r := range c.Quarks {
+		if r.Version == version {
+			return r, nil
+		}
+	}
+	return Quarks{}, errors.New("No quarks version found")
 }
 
 func (c Catalog) GetNginx(version string) (NginxIngress, error) {
@@ -83,6 +113,12 @@ func (c Catalog) GetList() []interface{} {
 	for _, d := range c.Stratos {
 		res = append(res, []interface{}{"stratos", d.Version})
 	}
+	for _, d := range c.Carrier {
+		res = append(res, []interface{}{"carrier", d.Version})
+	}
+	for _, d := range c.Quarks {
+		res = append(res, []interface{}{"quarks", d.Version})
+	}
 	return res
 }
 
@@ -103,16 +139,28 @@ func (c Catalog) Search(term string) []interface{} {
 			res = append(res, []interface{}{"stratos", d.Version})
 		}
 	}
+	for _, d := range c.Carrier {
+		if strings.Contains(d.Version, term) || strings.Contains("carrier", term) {
+			res = append(res, []interface{}{"carrier", d.Version})
+		}
+	}
+	for _, d := range c.Quarks {
+		if strings.Contains(d.Version, term) || strings.Contains("quarks", term) {
+			res = append(res, []interface{}{"quarks", d.Version})
+		}
+	}
 	return res
 }
 
 type DeploymentOptions struct {
-	Eirini              bool
-	Timeout             int
-	Ingress             bool
-	Debug               bool
-	Version             string
-	ChartURL, QuarksURL string
+	Eirini                             bool
+	Timeout                            int
+	Ingress                            bool
+	Debug                              bool
+	Version                            string
+	ChartURL, QuarksURL                string
+	AdditionalNamespaces               []string
+	RegistryUsername, RegistryPassword string
 }
 
 func (c Catalog) Deployment(name string, opts DeploymentOptions) (kubernetes.Deployment, error) {
@@ -120,14 +168,15 @@ func (c Catalog) Deployment(name string, opts DeploymentOptions) (kubernetes.Dep
 	case "kubecf":
 		if opts.ChartURL != "" || opts.QuarksURL != "" { // Return custom version specified
 			return &KubeCF{
-				Version:        "Custom",
-				ChartURL:       opts.ChartURL,
-				Namespace:      "kubecf",
-				QuarksOperator: opts.QuarksURL,
-				Eirini:         opts.Eirini,
-				Timeout:        opts.Timeout,
-				Ingress:        opts.Ingress,
-				Debug:          opts.Debug,
+				Version:              "Custom",
+				ChartURL:             opts.ChartURL,
+				Namespace:            "kubecf",
+				quarksVersion:        opts.QuarksURL,
+				Eirini:               opts.Eirini,
+				Timeout:              opts.Timeout,
+				Ingress:              opts.Ingress,
+				Debug:                opts.Debug,
+				AdditionalNamespaces: opts.AdditionalNamespaces,
 			}, nil
 		}
 		if len(opts.Version) == 0 { // Get default version if not specified
@@ -135,6 +184,12 @@ func (c Catalog) Deployment(name string, opts DeploymentOptions) (kubernetes.Dep
 			if err != nil {
 				return nil, err
 			}
+			kubecf.Eirini = opts.Eirini
+			kubecf.Timeout = opts.Timeout
+			kubecf.Ingress = opts.Ingress
+			kubecf.Debug = opts.Debug
+			kubecf.AdditionalNamespaces = opts.AdditionalNamespaces
+
 			return &kubecf, nil
 		}
 		kubecf, err := c.GetKubeCF(opts.Version)
@@ -145,6 +200,7 @@ func (c Catalog) Deployment(name string, opts DeploymentOptions) (kubernetes.Dep
 		kubecf.Timeout = opts.Timeout
 		kubecf.Ingress = opts.Ingress
 		kubecf.Debug = opts.Debug
+		kubecf.AdditionalNamespaces = opts.AdditionalNamespaces
 		return &kubecf, nil
 	case "nginx-ingress":
 		if opts.ChartURL != "" {
@@ -169,6 +225,61 @@ func (c Catalog) Deployment(name string, opts DeploymentOptions) (kubernetes.Dep
 		}
 		nginx.Debug = opts.Debug
 		return &nginx, nil
+	case "quarks":
+		if opts.ChartURL != "" {
+			quarks := Quarks{
+				Version:              "Custom",
+				ChartURL:             opts.ChartURL,
+				Debug:                opts.Debug,
+				AdditionalNamespaces: opts.AdditionalNamespaces,
+			}
+			return &quarks, nil
+		}
+		if len(opts.Version) == 0 {
+			quarks, err := c.GetQuarks("6.1.17")
+			if err != nil {
+				return nil, err
+			}
+			quarks.Debug = opts.Debug
+			quarks.AdditionalNamespaces = opts.AdditionalNamespaces
+			return &quarks, nil
+		}
+		quarks, err := c.GetQuarks(opts.Version)
+		if err != nil {
+			return nil, err
+		}
+		quarks.Debug = opts.Debug
+		quarks.AdditionalNamespaces = opts.AdditionalNamespaces
+		return &quarks, nil
+	case "carrier":
+		if opts.ChartURL != "" {
+			carrier := Carrier{
+				Version:          "Custom",
+				ChartURL:         opts.ChartURL,
+				Debug:            opts.Debug,
+				RegistryUsername: opts.RegistryUsername,
+				RegistryPassword: opts.RegistryPassword,
+			}
+			return &carrier, nil
+		}
+		if len(opts.Version) == 0 {
+			carrier, err := c.GetCarrier("master")
+			if err != nil {
+				return nil, err
+			}
+			carrier.Debug = opts.Debug
+			carrier.RegistryUsername = opts.RegistryUsername
+			carrier.RegistryPassword = opts.RegistryPassword
+			return &carrier, nil
+		}
+		carrier, err := c.GetCarrier(opts.Version)
+		if err != nil {
+			return nil, err
+		}
+		carrier.Debug = opts.Debug
+		carrier.RegistryUsername = opts.RegistryUsername
+		carrier.RegistryPassword = opts.RegistryPassword
+		return &carrier, nil
 	case "stratos":
 		if opts.ChartURL != "" {
 			stratos := Stratos{

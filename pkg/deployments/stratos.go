@@ -40,6 +40,10 @@ func (k Stratos) Delete(c kubernetes.Cluster) error {
 	return c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), k.Namespace, metav1.DeleteOptions{})
 }
 
+func (k Stratos) GetVersion() string {
+	return k.Version
+}
+
 func (k Stratos) apply(c kubernetes.Cluster, upgrade bool) error {
 
 	action := "install"

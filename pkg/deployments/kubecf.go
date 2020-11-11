@@ -15,12 +15,14 @@ import (
 )
 
 type KubeCF struct {
-	Version        string
-	ChartURL       string
-	QuarksOperator string
-	Namespace      string
-	domain         string
-	Debug          bool
+	Version       string
+	ChartURL      string
+	quarksVersion string
+	Namespace     string
+	domain        string
+	Debug         bool
+
+	AdditionalNamespaces []string
 
 	Eirini, Ingress, Autoscaler, LB bool
 	Timeout                         int
@@ -34,36 +36,48 @@ func (k KubeCF) GetDomain() string {
 	return k.domain
 }
 
+func (k KubeCF) GetVersion() string {
+	return k.Version
+}
+
 func (k KubeCF) Describe() string {
-	return emoji.Sprintf(":cloud:KubeCF version: %s\n:clipboard:Quarks chart: %s\n:clipboard:KubeCF chart: %s", k.Version, k.QuarksOperator, k.ChartURL)
+	return emoji.Sprintf(":cloud:KubeCF version: %s\n:clipboard:Quarks version: %s\n:clipboard:KubeCF chart: %s", k.Version, k.quarksVersion, k.ChartURL)
 }
 
 func (k KubeCF) Delete(c kubernetes.Cluster) error {
 	currentdir, _ := os.Getwd()
 
-	helpers.RunProc("kubectl delete crds boshdeployments.quarks.cloudfoundry.org", currentdir, k.Debug)
-	helpers.RunProc("kubectl delete crds quarksjobs.quarks.cloudfoundry.org", currentdir, k.Debug)
-	helpers.RunProc("kubectl delete crds quarkssecrets.quarks.cloudfoundry.org", currentdir, k.Debug)
-	helpers.RunProc("kubectl delete crds quarksstatefulsets.quarks.cloudfoundry.org", currentdir, k.Debug)
+	quarks, err := GlobalCatalog.GetQuarks(k.quarksVersion)
+	if err != nil {
+		return err
+	}
+	err = quarks.Delete(c)
+	if err != nil {
+		return err
+	}
+
+	for _, ns := range k.AdditionalNamespaces {
+		c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), ns, metav1.DeleteOptions{})
+	}
 
 	c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), k.Namespace, metav1.DeleteOptions{})
-	c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), "cf-operator", metav1.DeleteOptions{})
 	c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), "eirini", metav1.DeleteOptions{})
+	helpers.RunProc("kubectl delete psp kubecf-default", currentdir, k.Debug)
 
 	return nil
 }
 
-func (k KubeCF) GetPassword(c kubernetes.Cluster) (string, error) {
-	secret, err := c.Kubectl.CoreV1().Secrets(k.Namespace).Get(context.TODO(), "var-cf-admin-password", metav1.GetOptions{})
+func (k KubeCF) GetPassword(namespace string, c kubernetes.Cluster) (string, error) {
+	secret, err := c.Kubectl.CoreV1().Secrets(namespace).Get(context.TODO(), "var-cf-admin-password", metav1.GetOptions{})
 	if err != nil {
 		return "", errors.Wrap(err, "couldn't find password secret")
 	}
 	return string(secret.Data["password"]), nil
 }
 
-func (k KubeCF) genHelmSettings(c kubernetes.Cluster) []string {
+func (k KubeCF) genHelmSettings(c kubernetes.Cluster, domain string) []string {
 	var helmArgs []string
-	helmArgs = append(helmArgs, "--set system_domain="+k.domain)
+	helmArgs = append(helmArgs, "--set system_domain="+domain)
 
 	if k.Eirini {
 		helmArgs = append(helmArgs, "--set features.eirini.enabled=true")
@@ -89,52 +103,35 @@ func (k KubeCF) genHelmSettings(c kubernetes.Cluster) []string {
 	return helmArgs
 }
 
-func (k KubeCF) applyOperator(c kubernetes.Cluster, upgrade bool) error {
-	currentdir, _ := os.Getwd()
-	action := "install"
-	if upgrade {
-		action = "upgrade"
-	}
-
-	out, err := helpers.RunProc("helm "+action+" cf-operator --create-namespace --namespace cf-operator --wait "+k.QuarksOperator+" --set global.singleNamespace.name="+k.Namespace, currentdir, k.Debug)
-	fmt.Println(out)
-	if err != nil {
-		return errors.New("Failed installing cf-operator")
-	}
-
-	if err := c.WaitForPodBySelectorRunning("cf-operator", "", 900); err != nil {
-		return errors.Wrap(err, "failed waiting")
-	}
-	emoji.Println(":heavy_check_mark:Quarks Operator deployed correctly to the :rainbow: :cloud:")
-
-	return nil
-}
-
-func (k KubeCF) applyKubeCF(c kubernetes.Cluster, upgrade bool) error {
+func (k KubeCF) applyKubeCF(namespace, domain string, c kubernetes.Cluster, upgrade, psp bool) error {
 	currentdir, _ := os.Getwd()
 
 	// Setup KubeCF helm values
-	helmArgs := k.genHelmSettings(c)
+	helmArgs := k.genHelmSettings(c, domain)
 
 	action := "install"
 	if upgrade {
 		action = "upgrade"
 	}
+	if !psp {
+		helmArgs = append(helmArgs, "kube.psp.default=kubecf-default")
+	}
 
-	_, err := helpers.RunProc("helm "+action+" kubecf --namespace "+k.Namespace+" "+k.ChartURL+" "+strings.Join(helmArgs, " "), currentdir, k.Debug)
+	out, err := helpers.RunProc("helm "+action+" kubecf --namespace "+namespace+" "+k.ChartURL+" "+strings.Join(helmArgs, " "), currentdir, k.Debug)
 	if err != nil {
+		fmt.Println(string(out))
 		return errors.New("Failed installing kubecf")
 	}
 
 	// Wait for components to be up
 	for _, s := range []string{"api", "nats", "cc-worker", "doppler"} {
-		err = c.WaitUntilPodBySelectorExist(k.Namespace, "quarks.cloudfoundry.org/quarks-statefulset-name="+s, k.Timeout)
+		err = c.WaitUntilPodBySelectorExist(namespace, "quarks.cloudfoundry.org/quarks-statefulset-name="+s, k.Timeout)
 		if err != nil {
 			return errors.Wrap(err, "Failed waiting for api")
 		}
 	}
 
-	err = c.WaitForPodBySelectorRunning(k.Namespace, "app.kubernetes.io/name=kubecf", k.Timeout)
+	err = c.WaitForPodBySelectorRunning(namespace, "app.kubernetes.io/name=kubecf", k.Timeout)
 	if err != nil {
 		return errors.Wrap(err, "failed waiting for kubecf to be ready")
 	}
@@ -143,29 +140,47 @@ func (k KubeCF) applyKubeCF(c kubernetes.Cluster, upgrade bool) error {
 }
 
 func (k KubeCF) Deploy(c kubernetes.Cluster) error {
-	emoji.Println(":ship: Deploying Quarks Operator")
 	_, err := c.Kubectl.CoreV1().Namespaces().Get(
 		context.Background(),
 		"cf-operator",
 		metav1.GetOptions{},
 	)
-	if err == nil {
-		return errors.New("Namespace 'cf-operator' present already, run 'kubecfctl delete " + k.Version + "' first")
-	}
+	if err != nil {
+		quarks, err := GlobalCatalog.GetQuarks(k.quarksVersion)
+		if err != nil {
+			return err
+		}
 
-	if err := k.applyOperator(c, false); err != nil {
-		return errors.Wrap(err, "while deploying quarks operator")
+		quarks.AdditionalNamespaces = k.AdditionalNamespaces
+		err = quarks.Deploy(c)
+		if err != nil {
+			return err
+		}
+	} else {
+		emoji.Println(":ship:Quarks operator already present. Delete if you want to test cleanly")
 	}
 
 	emoji.Println(":ship:Deploying kubecf")
 
-	if err := k.applyKubeCF(c, false); err != nil {
-		return errors.Wrap(err, "while deploying quarks operator")
+	if err := k.applyKubeCF(k.Namespace, k.domain, c, false, true); err != nil {
+		return errors.Wrap(err, "while deploying kubecf")
 	}
 
-	pwd, err := k.GetPassword(c)
+	pwd, err := k.GetPassword(k.Namespace, c)
 	if err != nil {
 		return errors.Wrap(err, "couldn't find password")
+	}
+
+	for _, ns := range k.AdditionalNamespaces {
+		if err := k.applyKubeCF(ns, ns+"."+k.domain, c, false, false); err != nil {
+			return errors.Wrap(err, "while deploying kubecf for namespace "+ns)
+		}
+		pwd, err := k.GetPassword(ns, c)
+		if err != nil {
+			return errors.Wrap(err, "couldn't find password")
+		}
+
+		emoji.Println(":lock: " + ns + " CF Deployment ready, now you can login with: cf login --skip-ssl-validation -a https://api." + k.domain + " -u admin -p " + string(pwd))
 	}
 
 	emoji.Println(":lock:CF Deployment ready, now you can login with: cf login --skip-ssl-validation -a https://api." + k.domain + " -u admin -p " + string(pwd))
@@ -183,20 +198,25 @@ func (k KubeCF) Upgrade(c kubernetes.Cluster) error {
 		return errors.New("Namespace 'cf-operator' not present")
 	}
 
-	if err := k.applyOperator(c, true); err != nil {
-		return errors.Wrap(err, "while deploying quarks operator")
+	quarks, err := GlobalCatalog.GetQuarks(k.quarksVersion)
+	if err != nil {
+		return err
+	}
+	quarks.AdditionalNamespaces = k.AdditionalNamespaces
+	err = quarks.Upgrade(c)
+	if err != nil {
+		return err
 	}
 	emoji.Println(":ship:Upgrading kubecf")
 
-	if err := k.applyKubeCF(c, true); err != nil {
-		return errors.Wrap(err, "while deploying quarks operator")
+	if err := k.applyKubeCF(k.Namespace, k.domain, c, true, true); err != nil {
+		return errors.Wrap(err, "while upgrading kubecf")
 	}
 
-	pwd, err := k.GetPassword(c)
-	if err != nil {
-		return errors.Wrap(err, "couldn't find password")
+	for _, ns := range k.AdditionalNamespaces {
+		if err := k.applyKubeCF(ns, ns+"."+k.domain, c, true, false); err != nil {
+			return errors.Wrap(err, "while upgrading kubecf for namespace "+ns)
+		}
 	}
-
-	emoji.Println(":lock:CF Deployment ready, now you can login with: cf login --skip-ssl-validation -a https://api." + k.domain + " -u admin -p " + string(pwd))
 	return nil
 }

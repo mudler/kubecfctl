@@ -36,6 +36,8 @@ var deleteCmd = &cobra.Command{
 		viper.BindPFlag("version", cmd.Flags().Lookup("version"))
 		viper.BindPFlag("chart", cmd.Flags().Lookup("chart"))
 		viper.BindPFlag("quarks-chart", cmd.Flags().Lookup("quarks-chart"))
+		viper.BindPFlag("additional-namespace", cmd.Flags().Lookup("additional-namespace"))
+
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		eirini := viper.GetBool("eirini")
@@ -44,6 +46,7 @@ var deleteCmd = &cobra.Command{
 		version := viper.GetString("version")
 		chartURL := viper.GetString("chart")
 		quarksChart := viper.GetString("quarks-chart")
+		additionalNamespaces := viper.GetStringSlice("additional-namespace")
 
 		cluster, err := kubernetes.NewCluster(os.Getenv("KUBECONFIG"))
 		if err != nil {
@@ -54,13 +57,14 @@ var deleteCmd = &cobra.Command{
 		inst := kubernetes.NewInstaller()
 
 		d, err := deployments.GlobalCatalog.Deployment(args[0], deployments.DeploymentOptions{
-			Version:   version,
-			Eirini:    eirini,
-			Timeout:   1000,
-			Ingress:   ingress,
-			Debug:     debug,
-			ChartURL:  chartURL,
-			QuarksURL: quarksChart,
+			Version:              version,
+			Eirini:               eirini,
+			Timeout:              1000,
+			Ingress:              ingress,
+			Debug:                debug,
+			ChartURL:             chartURL,
+			QuarksURL:            quarksChart,
+			AdditionalNamespaces: additionalNamespaces,
 		})
 		if err != nil {
 			fmt.Println(err)
@@ -80,5 +84,7 @@ func init() {
 	deleteCmd.Flags().String("chart", "", "Chart URL (tgz)")
 	deleteCmd.Flags().String("quarks-chart", "", "Quarks Chart URL (tgz)")
 	deleteCmd.Flags().String("version", "", "Component version to deploy")
+	deleteCmd.Flags().StringSlice("additional-namespace", []string{}, "Additional namespaces to watch for (optional, required only by Quarks) ")
+
 	RootCmd.AddCommand(deleteCmd)
 }

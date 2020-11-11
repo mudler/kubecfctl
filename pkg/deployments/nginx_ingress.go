@@ -67,6 +67,10 @@ func (k NginxIngress) apply(c kubernetes.Cluster, upgrade bool) error {
 	return c.WaitForPodBySelectorRunning(k.Namespace, "", k.Timeout)
 }
 
+func (k NginxIngress) GetVersion() string {
+	return k.Version
+}
+
 func (k NginxIngress) Deploy(c kubernetes.Cluster) error {
 
 	_, err := c.Kubectl.CoreV1().Namespaces().Get(

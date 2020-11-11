@@ -40,6 +40,9 @@ Currently there are available two components, "kubecf" and "ingress".
 		viper.BindPFlag("version", cmd.Flags().Lookup("version"))
 		viper.BindPFlag("chart", cmd.Flags().Lookup("chart"))
 		viper.BindPFlag("quarks-chart", cmd.Flags().Lookup("quarks-chart"))
+		viper.BindPFlag("registry-username", cmd.Flags().Lookup("registry-username"))
+		viper.BindPFlag("registry-password", cmd.Flags().Lookup("registry-password"))
+		viper.BindPFlag("additional-namespace", cmd.Flags().Lookup("additional-namespace"))
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		eirini := viper.GetBool("eirini")
@@ -49,7 +52,9 @@ Currently there are available two components, "kubecf" and "ingress".
 		version := viper.GetString("version")
 		chartURL := viper.GetString("chart")
 		quarksChart := viper.GetString("quarks-chart")
-
+		registryUserame := viper.GetString("registry-username")
+		registryPassword := viper.GetString("registry-password")
+		additionalNamespaces := viper.GetStringSlice("additional-namespace")
 		cluster, err := kubernetes.NewCluster(os.Getenv("KUBECONFIG"))
 		if err != nil {
 			fmt.Println(err)
@@ -59,13 +64,16 @@ Currently there are available two components, "kubecf" and "ingress".
 		inst := kubernetes.NewInstaller()
 
 		d, err := deployments.GlobalCatalog.Deployment(args[0], deployments.DeploymentOptions{
-			Version:   version,
-			Eirini:    eirini,
-			Timeout:   1000,
-			Ingress:   ingress,
-			Debug:     debug,
-			ChartURL:  chartURL,
-			QuarksURL: quarksChart,
+			Version:              version,
+			Eirini:               eirini,
+			Timeout:              1000,
+			Ingress:              ingress,
+			Debug:                debug,
+			ChartURL:             chartURL,
+			QuarksURL:            quarksChart,
+			RegistryUsername:     registryUserame,
+			RegistryPassword:     registryPassword,
+			AdditionalNamespaces: additionalNamespaces,
 		})
 		if err != nil {
 			fmt.Println(err)
@@ -94,6 +102,9 @@ func init() {
 	installCmd.Flags().String("chart", "", "Chart URL (tgz)")
 	installCmd.Flags().String("quarks-chart", "", "Quarks Chart URL (tgz)")
 	installCmd.Flags().String("version", "", "Component version to deploy")
+	installCmd.Flags().String("registry-username", "", "Registry username (optional, required only by Carrier)")
+	installCmd.Flags().String("registry-password", "", "Registry password (optional, required only by Carrier) ")
+	installCmd.Flags().StringSlice("additional-namespace", []string{}, "Additional namespaces to watch for (optional, required only by Quarks) ")
 
 	RootCmd.AddCommand(installCmd)
 }

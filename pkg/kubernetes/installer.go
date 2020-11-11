@@ -15,6 +15,7 @@ type Deployment interface {
 	GetDomain() string
 	Delete(Cluster) error
 	Describe() string
+	GetVersion() string
 }
 
 func NewInstaller() *Installer {

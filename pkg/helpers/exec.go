@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 
@@ -9,7 +10,9 @@ import (
 )
 
 func RunProc(cmd, dir string, toStdout bool) (string, error) {
-
+	if os.Getenv("DEBUG_KUBECTL") == "true" {
+		fmt.Println("Executing ", cmd)
+	}
 	p := kexec.CommandString(cmd)
 
 	var b bytes.Buffer
@@ -27,7 +30,6 @@ func RunProc(cmd, dir string, toStdout bool) (string, error) {
 		return b.String(), err
 	}
 
-	p.Wait()
-
-	return b.String(), nil
+	err := p.Wait()
+	return b.String(), err
 }
