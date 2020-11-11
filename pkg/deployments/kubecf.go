@@ -140,6 +140,8 @@ func (k KubeCF) applyKubeCF(namespace, domain string, c kubernetes.Cluster, upgr
 }
 
 func (k KubeCF) Deploy(c kubernetes.Cluster) error {
+	currentdir, _ := os.Getwd()
+
 	_, err := c.Kubectl.CoreV1().Namespaces().Get(
 		context.Background(),
 		"cf-operator",
@@ -161,7 +163,6 @@ func (k KubeCF) Deploy(c kubernetes.Cluster) error {
 	}
 
 	emoji.Println(":ship:Deploying kubecf")
-
 	if err := k.applyKubeCF(k.Namespace, k.domain, c, false, true); err != nil {
 		return errors.Wrap(err, "while deploying kubecf")
 	}
@@ -169,6 +170,11 @@ func (k KubeCF) Deploy(c kubernetes.Cluster) error {
 	pwd, err := k.GetPassword(k.Namespace, c)
 	if err != nil {
 		return errors.Wrap(err, "couldn't find password")
+	}
+	// workaround for: https://github.com/cloudfoundry-incubator/kubecf/issues/1582
+	if !k.Eirini {
+		helpers.RunProc("kubectl delete clusterrolebinding eirini-cluster-rolebinding", currentdir, k.Debug)
+		helpers.RunProc("kubectl delete clusterrole eirini-cluster-role", currentdir, k.Debug)
 	}
 
 	for _, ns := range k.AdditionalNamespaces {
@@ -178,6 +184,11 @@ func (k KubeCF) Deploy(c kubernetes.Cluster) error {
 		pwd, err := k.GetPassword(ns, c)
 		if err != nil {
 			return errors.Wrap(err, "couldn't find password")
+		}
+		// workaround for: https://github.com/cloudfoundry-incubator/kubecf/issues/1582
+		if !k.Eirini {
+			helpers.RunProc("kubectl delete clusterrolebinding eirini-cluster-rolebinding", currentdir, k.Debug)
+			helpers.RunProc("kubectl delete clusterrole eirini-cluster-role", currentdir, k.Debug)
 		}
 
 		emoji.Println(":lock: " + ns + " CF Deployment ready, now you can login with: cf login --skip-ssl-validation -a https://api." + k.domain + " -u admin -p " + string(pwd))
