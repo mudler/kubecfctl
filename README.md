@@ -1,6 +1,8 @@
 # kubecfctl
 unofficial KubeCF CLI installer tool
 
+[![asciicast](https://asciinema.org/a/eTMhcjj5M7LPEvRux3PHKuMxS.svg)](https://asciinema.org/a/eTMhcjj5M7LPEvRux3PHKuMxS)
+
 ## Kubecfctl + K3s = :heart:
 
 ```bash
