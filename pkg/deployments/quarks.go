@@ -110,7 +110,7 @@ func (q Quarks) prepareAdditionalNamespace(c kubernetes.Cluster, namespace strin
 	}
 	currentdir, _ := os.Getwd()
 
-	out, err := helpers.RunProc(fmt.Sprintf("kubectl --namespace %s create rolebinding --clusterrole %s --serviceaccount %s %s", namespace, q.Namespace, namespace+":"+saName, roleName), currentdir, q.Debug)
+	out, err := helpers.RunProc(fmt.Sprintf("kubectl --namespace %s create rolebinding --clusterrole %s --serviceaccount %s %s", namespace, "qjob-persist-output", namespace+":"+saName, roleName), currentdir, q.Debug)
 	if err != nil {
 		fmt.Println(string(out))
 		return err
