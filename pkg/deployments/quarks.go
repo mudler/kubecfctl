@@ -155,7 +155,7 @@ func (k Quarks) GetVersion() string {
 }
 
 func (k Quarks) Deploy(c kubernetes.Cluster) error {
-	emoji.Println(":ship: Deploying Quarks Operator")
+	emoji.Println(":ship:Deploying Quarks Operator")
 	_, err := c.Kubectl.CoreV1().Namespaces().Get(
 		context.Background(),
 		"cf-operator",

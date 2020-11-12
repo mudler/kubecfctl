@@ -14,7 +14,7 @@ type kind struct {
 }
 
 func (k *kind) Describe() string {
-	return emoji.Sprintf(":anchor: Detected kubernetes platform: %s\n:earth_americas:ExternalIPs: %s\n:curly_loop:InternalIPs: %s", k.String(), k.ExternalIPs(), k.InternalIPs)
+	return emoji.Sprintf(":anchor:Detected kubernetes platform: %s\n:earth_americas:ExternalIPs: %s\n:curly_loop:InternalIPs: %s", k.String(), k.ExternalIPs(), k.InternalIPs)
 }
 
 func (k *kind) String() string { return "kind" }

@@ -41,7 +41,7 @@ func (k KubeCF) GetVersion() string {
 }
 
 func (k KubeCF) Describe() string {
-	return emoji.Sprintf(":cloud:KubeCF version: %s\n:clipboard:Quarks version: %s\n:clipboard:KubeCF chart: %s", k.Version, k.quarksVersion, k.ChartURL)
+	return emoji.Sprintf(":cloud: KubeCF version: %s\n:clipboard:Quarks version: %s\n:clipboard:KubeCF chart: %s", k.Version, k.quarksVersion, k.ChartURL)
 }
 
 func (k KubeCF) Delete(c kubernetes.Cluster) error {
@@ -58,10 +58,12 @@ func (k KubeCF) Delete(c kubernetes.Cluster) error {
 
 	for _, ns := range k.AdditionalNamespaces {
 		c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), ns, metav1.DeleteOptions{})
+		c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), ns+"-eirini", metav1.DeleteOptions{})
 	}
 
 	c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), k.Namespace, metav1.DeleteOptions{})
-	c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), "eirini", metav1.DeleteOptions{})
+	c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), k.Namespace+"-eirini", metav1.DeleteOptions{})
+
 	helpers.RunProc("kubectl delete psp kubecf-default", currentdir, k.Debug)
 	// workaround for: https://github.com/cloudfoundry-incubator/kubecf/issues/1582
 	helpers.RunProc("kubectl delete clusterrolebinding eirini-cluster-rolebinding", currentdir, k.Debug)
@@ -78,13 +80,14 @@ func (k KubeCF) GetPassword(namespace string, c kubernetes.Cluster) (string, err
 	return string(secret.Data["password"]), nil
 }
 
-func (k KubeCF) genHelmSettings(c kubernetes.Cluster, domain string) []string {
+func (k KubeCF) genHelmSettings(c kubernetes.Cluster, domain, ns string) []string {
 	var helmArgs []string
 	helmArgs = append(helmArgs, "--set system_domain="+domain)
 
 	if k.Eirini {
 		helmArgs = append(helmArgs, "--set features.eirini.enabled=true")
 		helmArgs = append(helmArgs, "--set install_stacks[0]=sle15")
+		helmArgs = append(helmArgs, "--set eirini.opi.namespace="+ns+"-eirini")
 	}
 
 	if !k.Ingress {
@@ -110,7 +113,7 @@ func (k KubeCF) applyKubeCF(namespace, domain string, c kubernetes.Cluster, upgr
 	currentdir, _ := os.Getwd()
 
 	// Setup KubeCF helm values
-	helmArgs := k.genHelmSettings(c, domain)
+	helmArgs := k.genHelmSettings(c, domain, namespace)
 
 	action := "install"
 	if upgrade {
