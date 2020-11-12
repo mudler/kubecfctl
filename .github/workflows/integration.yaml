@@ -1,0 +1,24 @@
+name: Integration
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - uses: engineerd/setup-kind@v0.5.0
+      - name: Build kubecfctl
+        run: | 
+            make deps build
+            kind get kubeconfig > kubeconfig
+      - name: Test
+        run: |
+          export KUBECONFIG=$PWD/kubeconfig
+          bin/kubecfctl install nginx-ingress
+          bin/kubecfctl install stratos
+          bin/kubecfctl install carrier
