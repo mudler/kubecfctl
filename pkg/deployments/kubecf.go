@@ -168,6 +168,27 @@ func (k KubeCF) Deploy(c kubernetes.Cluster) error {
 		emoji.Println(":ship:Quarks operator already present. Delete if you want to test cleanly")
 	}
 
+	if k.Ingress {
+		_, err = c.Kubectl.CoreV1().Namespaces().Get(
+			context.Background(),
+			"nginx-ingress",
+			metav1.GetOptions{},
+		)
+		if err != nil {
+			nginx, err := GlobalCatalog.GetNginx("3.7.1")
+			if err != nil {
+				return err
+			}
+
+			err = nginx.Deploy(c)
+			if err != nil {
+				return err
+			}
+		} else {
+			emoji.Println(":ship:Nginx already present. Delete if you want to test cleanly")
+		}
+	}
+
 	emoji.Println(":ship:Deploying kubecf")
 	if err := k.applyKubeCF(k.Namespace, k.domain, c, false, true); err != nil {
 		return errors.Wrap(err, "while deploying kubecf")
@@ -184,6 +205,22 @@ func (k KubeCF) Deploy(c kubernetes.Cluster) error {
 	}
 
 	for _, ns := range k.AdditionalNamespaces {
+
+		if k.Eirini {
+			for _, psp := range []string{
+				"bits-service", "eirini",
+				"eirini-events", "eirini-metrics",
+				"eirini-routing", "eirini-staging-reporter", "kubecf-eirini-app-psp",
+			} {
+				helpers.RunProc("kubectl delete psp "+psp, currentdir, k.Debug)
+
+			}
+			helpers.RunProc("kubectl delete clusterrole eirini-nodes-policy", currentdir, k.Debug)
+
+			helpers.RunProc("kubectl delete clusterrolebinding eirini-cluster-rolebinding", currentdir, k.Debug)
+			helpers.RunProc("kubectl delete clusterrole eirini-cluster-role", currentdir, k.Debug)
+		}
+
 		if err := k.applyKubeCF(ns, ns+"."+k.domain, c, false, false); err != nil {
 			return errors.Wrap(err, "while deploying kubecf for namespace "+ns)
 		}

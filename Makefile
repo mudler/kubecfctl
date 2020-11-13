@@ -1,6 +1,6 @@
 BINDIR      := $(CURDIR)/bin
 BINNAME     ?= kubecfctl
-BUILD_PLATFORMS ?= -osarch="linux/amd64" -osarch="linux/386" -osarch="linux/arm"
+BUILD_PLATFORMS ?=
 # go option
 PKG        := ./...
 TAGS       :=

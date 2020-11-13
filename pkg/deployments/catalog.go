@@ -11,37 +11,23 @@ import (
 type Deployment interface {
 	GetVersion() string
 }
-type Catalog struct {
-	Nginx   []NginxIngress
-	KubeCF  []KubeCF
-	Stratos []Stratos
-	Carrier []Carrier
-	Quarks  []Quarks
-}
+
+type catalogVersions map[string]map[string]kubernetes.Deployment
+
+type available map[string]kubernetes.Deployment
+
+type Catalog map[string]available
 
 var GlobalCatalog = Catalog{
-	Stratos: []Stratos{
-		{
-			Version:   "4.2.1",
-			ChartURL:  "https://github.com/cloudfoundry/stratos/releases/download/4.2.1/console-helm-chart-4.2.1-15dcb83ab.tgz",
-			Namespace: "stratos",
-		},
-	},
-	Nginx: []NginxIngress{
-		{
-			Version:   "3.7.1",
-			ChartURL:  "https://github.com/kubernetes/ingress-nginx/releases/download/ingress-nginx-3.7.1/ingress-nginx-3.7.1.tgz",
-			Namespace: "nginx-ingress",
-		},
-	},
-	KubeCF: []KubeCF{
-		{
+
+	"kubecf": available{
+		"2.6.1": &KubeCF{
 			Version:       "2.6.1",
 			ChartURL:      "https://github.com/cloudfoundry-incubator/kubecf/releases/download/v2.6.1/kubecf-v2.6.1.tgz",
 			Namespace:     "kubecf",
 			quarksVersion: "6.1.17",
 		},
-		{
+		"2.5.8": &KubeCF{
 			Version:       "2.5.8",
 			ChartURL:      "https://github.com/cloudfoundry-incubator/kubecf/releases/download/v2.5.8/kubecf-v2.5.8.tgz",
 			Namespace:     "kubecf",
@@ -49,106 +35,101 @@ var GlobalCatalog = Catalog{
 		},
 	},
 
-	Quarks: []Quarks{{
-		Version:   "6.1.17",
-		Namespace: "kubecf",
-		ChartURL:  "https://s3.amazonaws.com/cf-operators/release/helm-charts/cf-operator-6.1.17%2B0.gec409fd7.tgz",
-	}},
-	Carrier: []Carrier{{Version: "master", ChartURL: "https://github.com/SUSE/carrier", quarksVersion: "6.1.17"}},
+	"stratos": available{
+		"4.2.1": &Stratos{
+			Version:   "4.2.1",
+			ChartURL:  "https://github.com/cloudfoundry/stratos/releases/download/4.2.1/console-helm-chart-4.2.1-15dcb83ab.tgz",
+			Namespace: "stratos",
+		},
+	},
+
+	"nginx": available{
+		"3.7.1": &NginxIngress{
+			Version:   "3.7.1",
+			ChartURL:  "https://github.com/kubernetes/ingress-nginx/releases/download/ingress-nginx-3.7.1/ingress-nginx-3.7.1.tgz",
+			Namespace: "nginx-ingress",
+		},
+	},
+
+	"quarks": available{
+		"6.1.17": &Quarks{
+			Version:   "6.1.17",
+			Namespace: "kubecf",
+			ChartURL:  "https://s3.amazonaws.com/cf-operators/release/helm-charts/cf-operator-6.1.17%2B0.gec409fd7.tgz",
+		},
+	},
+
+	"carrier": available{
+		"master": &Carrier{
+			Version:       "master",
+			ChartURL:      "https://github.com/SUSE/carrier",
+			quarksVersion: "6.1.17",
+		},
+	},
 }
 
 func (c Catalog) GetKubeCF(version string) (KubeCF, error) {
-	for _, r := range c.KubeCF {
-		if r.Version == version {
-			return r, nil
-		}
+	d, ok := c["kubecf"][version]
+	if !ok {
+		return KubeCF{}, errors.New("version not found")
 	}
-	return KubeCF{}, errors.New("No kubecf version found")
+	return *(d.(*KubeCF)), nil
 }
 
 func (c Catalog) GetCarrier(version string) (Carrier, error) {
-	for _, r := range c.Carrier {
-		if r.Version == version {
-			return r, nil
-		}
+	d, ok := c["carrier"][version]
+	if !ok {
+		return Carrier{}, errors.New("version not found")
 	}
-	return Carrier{}, errors.New("No carrier version found")
+	return *(d.(*Carrier)), nil
 }
 
 func (c Catalog) GetQuarks(version string) (Quarks, error) {
-	for _, r := range c.Quarks {
-		if r.Version == version {
-			return r, nil
-		}
+	d, ok := c["quarks"][version]
+	if !ok {
+		return Quarks{}, errors.New("version not found")
 	}
-	return Quarks{}, errors.New("No quarks version found")
+	return *(d.(*Quarks)), nil
 }
 
 func (c Catalog) GetNginx(version string) (NginxIngress, error) {
-	for _, r := range c.Nginx {
-		if r.Version == version {
-			return r, nil
-		}
+	d, ok := c["nginx"][version]
+	if !ok {
+		return NginxIngress{}, errors.New("version not found")
 	}
-	return NginxIngress{}, errors.New("No version found")
+	return *(d.(*NginxIngress)), nil
 }
 
 func (c Catalog) GetStratos(version string) (Stratos, error) {
-	for _, r := range c.Stratos {
-		if r.Version == version {
-			return r, nil
-		}
+	d, ok := c["stratos"][version]
+	if !ok {
+		return Stratos{}, errors.New("version not found")
 	}
-	return Stratos{}, errors.New("No version found")
+	return *(d.(*Stratos)), nil
 }
 
 func (c Catalog) GetList() []interface{} {
 	var res []interface{}
-	for _, d := range c.KubeCF {
-		res = append(res, []interface{}{"kubecf", d.Version})
+	for p, s := range c {
+		for v := range s {
+			res = append(res, []interface{}{p, v})
+		}
 	}
-	for _, d := range c.Nginx {
-		res = append(res, []interface{}{"nginx-ingress", d.Version})
-	}
-	for _, d := range c.Stratos {
-		res = append(res, []interface{}{"stratos", d.Version})
-	}
-	for _, d := range c.Carrier {
-		res = append(res, []interface{}{"carrier", d.Version})
-	}
-	for _, d := range c.Quarks {
-		res = append(res, []interface{}{"quarks", d.Version})
-	}
+
 	return res
 }
 
 func (c Catalog) Search(term string) []interface{} {
 	var res []interface{}
-	for _, d := range c.KubeCF {
-		if strings.Contains(d.Version, term) || strings.Contains("kubecf", term) {
-			res = append(res, []interface{}{"kubecf", d.Version})
+
+	for p, s := range c {
+		for v := range s {
+			if strings.Contains(v, term) || strings.Contains(p, term) {
+				res = append(res, []interface{}{p, v})
+			}
 		}
 	}
-	for _, d := range c.Nginx {
-		if strings.Contains(d.Version, term) || strings.Contains("nginx-ingress", term) {
-			res = append(res, []interface{}{"nginx-ingress", d.Version})
-		}
-	}
-	for _, d := range c.Stratos {
-		if strings.Contains(d.Version, term) || strings.Contains("stratos", term) {
-			res = append(res, []interface{}{"stratos", d.Version})
-		}
-	}
-	for _, d := range c.Carrier {
-		if strings.Contains(d.Version, term) || strings.Contains("carrier", term) {
-			res = append(res, []interface{}{"carrier", d.Version})
-		}
-	}
-	for _, d := range c.Quarks {
-		if strings.Contains(d.Version, term) || strings.Contains("quarks", term) {
-			res = append(res, []interface{}{"quarks", d.Version})
-		}
-	}
+
 	return res
 }
 
