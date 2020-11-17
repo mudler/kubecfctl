@@ -19,6 +19,7 @@ type KubeCF struct {
 	ChartURL      string
 	quarksVersion string
 	Namespace     string
+	StorageClass  string
 	domain        string
 	Debug         bool
 
@@ -88,6 +89,10 @@ func (k KubeCF) genHelmSettings(c kubernetes.Cluster, domain, ns string) []strin
 		helmArgs = append(helmArgs, "--set features.eirini.enabled=true")
 		helmArgs = append(helmArgs, "--set install_stacks[0]=sle15")
 		helmArgs = append(helmArgs, "--set eirini.opi.namespace="+ns+"-eirini")
+	}
+
+	if len(k.StorageClass) != 0 {
+		helmArgs = append(helmArgs, "--set kube.storage_class="+k.StorageClass)
 	}
 
 	if !k.Ingress {

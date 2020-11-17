@@ -142,6 +142,7 @@ type DeploymentOptions struct {
 	ChartURL, QuarksURL                string
 	AdditionalNamespaces               []string
 	RegistryUsername, RegistryPassword string
+	StorageClass                       string
 }
 
 func (c Catalog) Deployment(name string, opts DeploymentOptions) (kubernetes.Deployment, error) {
@@ -157,6 +158,7 @@ func (c Catalog) Deployment(name string, opts DeploymentOptions) (kubernetes.Dep
 				Timeout:              opts.Timeout,
 				Ingress:              opts.Ingress,
 				Debug:                opts.Debug,
+				StorageClass:         opts.StorageClass,
 				AdditionalNamespaces: opts.AdditionalNamespaces,
 			}, nil
 		}
@@ -169,6 +171,7 @@ func (c Catalog) Deployment(name string, opts DeploymentOptions) (kubernetes.Dep
 			kubecf.Timeout = opts.Timeout
 			kubecf.Ingress = opts.Ingress
 			kubecf.Debug = opts.Debug
+			kubecf.StorageClass = opts.StorageClass
 			kubecf.AdditionalNamespaces = opts.AdditionalNamespaces
 
 			return &kubecf, nil
@@ -180,6 +183,7 @@ func (c Catalog) Deployment(name string, opts DeploymentOptions) (kubernetes.Dep
 		kubecf.Eirini = opts.Eirini
 		kubecf.Timeout = opts.Timeout
 		kubecf.Ingress = opts.Ingress
+		kubecf.StorageClass = opts.StorageClass
 		kubecf.Debug = opts.Debug
 		kubecf.AdditionalNamespaces = opts.AdditionalNamespaces
 		return &kubecf, nil

@@ -41,6 +41,8 @@ Currently there are available two components, "kubecf" and "ingress".
 		viper.BindPFlag("chart", cmd.Flags().Lookup("chart"))
 		viper.BindPFlag("quarks-chart", cmd.Flags().Lookup("quarks-chart"))
 		viper.BindPFlag("registry-username", cmd.Flags().Lookup("registry-username"))
+		viper.BindPFlag("storage-class", cmd.Flags().Lookup("storage-class"))
+
 		viper.BindPFlag("registry-password", cmd.Flags().Lookup("registry-password"))
 		viper.BindPFlag("additional-namespace", cmd.Flags().Lookup("additional-namespace"))
 	},
@@ -51,6 +53,7 @@ Currently there are available two components, "kubecf" and "ingress".
 		debug := viper.GetBool("debug")
 		version := viper.GetString("version")
 		chartURL := viper.GetString("chart")
+		storageClass := viper.GetString("storage-class")
 		quarksChart := viper.GetString("quarks-chart")
 		registryUserame := viper.GetString("registry-username")
 		registryPassword := viper.GetString("registry-password")
@@ -72,6 +75,7 @@ Currently there are available two components, "kubecf" and "ingress".
 			ChartURL:             chartURL,
 			QuarksURL:            quarksChart,
 			RegistryUsername:     registryUserame,
+			StorageClass:         storageClass,
 			RegistryPassword:     registryPassword,
 			AdditionalNamespaces: additionalNamespaces,
 		})
@@ -105,6 +109,7 @@ func init() {
 	installCmd.Flags().String("registry-username", "", "Registry username (optional, required only by Carrier)")
 	installCmd.Flags().String("registry-password", "", "Registry password (optional, required only by Carrier) ")
 	installCmd.Flags().StringSlice("additional-namespace", []string{}, "Additional namespaces to watch for (optional, required only by Quarks) ")
+	installCmd.Flags().String("storage-class", "default", "Storage class to be used")
 
 	RootCmd.AddCommand(installCmd)
 }
