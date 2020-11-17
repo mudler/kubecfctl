@@ -9,6 +9,8 @@ import (
 	"github.com/kyokomi/emoji"
 	"github.com/pkg/errors"
 
+	generic "github.com/mudler/kubecfctl/pkg/kubernetes/platform/generic"
+	ibm "github.com/mudler/kubecfctl/pkg/kubernetes/platform/ibm"
 	k3s "github.com/mudler/kubecfctl/pkg/kubernetes/platform/k3s"
 	kind "github.com/mudler/kubecfctl/pkg/kubernetes/platform/kind"
 
@@ -17,6 +19,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+
+	// https://github.com/kubernetes/client-go/issues/345
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
 type Platform interface {
@@ -27,7 +32,7 @@ type Platform interface {
 	ExternalIPs() []string
 }
 
-var SupportedPlatforms []Platform = []Platform{kind.NewPlatform(), k3s.NewPlatform()}
+var SupportedPlatforms []Platform = []Platform{kind.NewPlatform(), k3s.NewPlatform(), ibm.NewPlatform()}
 
 type Cluster struct {
 	//	InternalIPs []string
@@ -57,7 +62,9 @@ func (c *Cluster) Connect(config string) error {
 	c.Kubectl = clientset
 	c.detectPlatform()
 	if c.platform == nil {
-		return errors.New("No supported platform detected. Bailing out")
+		emoji.Println(":warning: No valid platform detected, trying general platform. Things might go wrong")
+		c.platform = generic.NewPlatform()
+		//return errors.New("No supported platform detected. Bailing out")
 	}
 
 	return c.platform.Load(clientset)

@@ -4,13 +4,15 @@ import (
 	"context"
 	"strings"
 
+	"github.com/mudler/kubecfctl/pkg/kubernetes/platform/generic"
+
 	"github.com/kyokomi/emoji"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
 type kind struct {
-	InternalIPs []string
+	generic.Generic
 }
 
 func (k *kind) Describe() string {
@@ -32,26 +34,8 @@ func (k *kind) Detect(kube *kubernetes.Clientset) bool {
 	return false
 }
 
-func (k *kind) Load(kube *kubernetes.Clientset) error {
-	nodes, err := kube.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-	// See also https://github.com/kubernetes/kubernetes/blob/47943d5f9ce7dbe8fbf805ff76a5eb9726c6af0c/test/e2e/framework/util.go#L1266
-	internalIPs := []string{}
-	for _, n := range nodes.Items {
-		for _, address := range n.Status.Addresses {
-			if address.Type == "InternalIP" {
-				internalIPs = append(internalIPs, address.Address)
-			}
-		}
-	}
-	k.InternalIPs = internalIPs
-	return nil
-}
-
 func (k *kind) ExternalIPs() []string {
-	return k.InternalIPs
+	return k.Generic.InternalIPs
 }
 
 func NewPlatform() *kind {
