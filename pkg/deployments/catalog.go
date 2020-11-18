@@ -20,6 +20,14 @@ type Catalog map[string]available
 
 var GlobalCatalog = Catalog{
 
+	"cap": available{
+		"2.1": &KubeCF{
+			Version:       "2.5.8",
+			ChartURL:      "https://kubernetes-charts.suse.com/kubecf-2.5.8.tgz",
+			Namespace:     "kubecf",
+			quarksVersion: "6.1.17",
+		},
+	},
 	"kubecf": available{
 		"2.6.1": &KubeCF{
 			Version:       "2.6.1",
@@ -66,6 +74,14 @@ var GlobalCatalog = Catalog{
 			quarksVersion: "6.1.17",
 		},
 	},
+}
+
+func (c Catalog) GetCAP(version string) (KubeCF, error) {
+	d, ok := c["cap"][version]
+	if !ok {
+		return KubeCF{}, errors.New("version not found")
+	}
+	return *(d.(*KubeCF)), nil
 }
 
 func (c Catalog) GetKubeCF(version string) (KubeCF, error) {
@@ -147,6 +163,46 @@ type DeploymentOptions struct {
 
 func (c Catalog) Deployment(name string, opts DeploymentOptions) (kubernetes.Deployment, error) {
 	switch name {
+	case "cap":
+		if opts.ChartURL != "" || opts.QuarksURL != "" { // Return custom version specified
+			return &KubeCF{
+				Version:              "Custom",
+				ChartURL:             opts.ChartURL,
+				Namespace:            "kubecf",
+				quarksVersion:        opts.QuarksURL,
+				Eirini:               opts.Eirini,
+				Timeout:              opts.Timeout,
+				Ingress:              opts.Ingress,
+				Debug:                opts.Debug,
+				StorageClass:         opts.StorageClass,
+				AdditionalNamespaces: opts.AdditionalNamespaces,
+			}, nil
+		}
+		if len(opts.Version) == 0 { // Get default version if not specified
+			kubecf, err := c.GetCAP("2.1")
+			if err != nil {
+				return nil, err
+			}
+			kubecf.Eirini = opts.Eirini
+			kubecf.Timeout = opts.Timeout
+			kubecf.Ingress = opts.Ingress
+			kubecf.Debug = opts.Debug
+			kubecf.StorageClass = opts.StorageClass
+			kubecf.AdditionalNamespaces = opts.AdditionalNamespaces
+
+			return &kubecf, nil
+		}
+		kubecf, err := c.GetCAP(opts.Version)
+		if err != nil {
+			return nil, err
+		}
+		kubecf.Eirini = opts.Eirini
+		kubecf.Timeout = opts.Timeout
+		kubecf.Ingress = opts.Ingress
+		kubecf.StorageClass = opts.StorageClass
+		kubecf.Debug = opts.Debug
+		kubecf.AdditionalNamespaces = opts.AdditionalNamespaces
+		return &kubecf, nil
 	case "kubecf":
 		if opts.ChartURL != "" || opts.QuarksURL != "" { // Return custom version specified
 			return &KubeCF{
