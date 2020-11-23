@@ -6,7 +6,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/kyokomi/emoji"
 	"github.com/mudler/kubecfctl/pkg/helpers"
 	"github.com/mudler/kubecfctl/pkg/kubernetes"
@@ -69,6 +71,7 @@ func (k KubeCF) Delete(c kubernetes.Cluster) error {
 	// workaround for: https://github.com/cloudfoundry-incubator/kubecf/issues/1582
 	helpers.RunProc("kubectl delete clusterrolebinding eirini-cluster-rolebinding", currentdir, k.Debug)
 	helpers.RunProc("kubectl delete clusterrole eirini-cluster-role", currentdir, k.Debug)
+	emoji.Println(":heavy_check_mark: KubeCF deleted")
 
 	return nil
 }
@@ -128,12 +131,15 @@ func (k KubeCF) applyKubeCF(namespace, domain string, c kubernetes.Cluster, upgr
 		helmArgs = append(helmArgs, "--set kube.psp.default=kubecf-default")
 	}
 
+	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond) // Build our new spinner
+	s.Start()                                                    // Start the spinner
 	out, err := helpers.RunProc("helm "+action+" kubecf --namespace "+namespace+" "+k.ChartURL+" "+strings.Join(helmArgs, " "), currentdir, k.Debug)
 	if err != nil {
 		fmt.Println(string(out))
 		return errors.New("Failed installing kubecf")
 	}
 
+	s.Stop()
 	// Wait for components to be up
 	for _, s := range []string{"api", "nats", "cc-worker", "doppler"} {
 		err = c.WaitUntilPodBySelectorExist(namespace, "quarks.cloudfoundry.org/quarks-statefulset-name="+s, k.Timeout)
@@ -146,7 +152,7 @@ func (k KubeCF) applyKubeCF(namespace, domain string, c kubernetes.Cluster, upgr
 	if err != nil {
 		return errors.Wrap(err, "failed waiting for kubecf to be ready")
 	}
-	emoji.Println(":heavy_check_mark:KubeCF deployed correctly to the :rainbow: :cloud:")
+	emoji.Println(":heavy_check_mark: KubeCF deployed correctly to the :rainbow: :cloud:")
 	return nil
 }
 
@@ -195,6 +201,7 @@ func (k KubeCF) Deploy(c kubernetes.Cluster) error {
 	}
 
 	emoji.Println(":ship:Deploying kubecf")
+
 	if err := k.applyKubeCF(k.Namespace, k.domain, c, false, true); err != nil {
 		return errors.Wrap(err, "while deploying kubecf")
 	}
@@ -239,7 +246,7 @@ func (k KubeCF) Deploy(c kubernetes.Cluster) error {
 			helpers.RunProc("kubectl delete clusterrole eirini-cluster-role", currentdir, k.Debug)
 		}
 
-		emoji.Println(":lock: " + ns + " CF Deployment ready, now you can login with: cf login --skip-ssl-validation -a https://api." + k.domain + " -u admin -p " + string(pwd))
+		emoji.Println(":lock: " + ns + " CF Deployment ready, now you can login with: cf login --skip-ssl-validation -a https://api." + ns + "." + k.domain + " -u admin -p " + string(pwd))
 	}
 
 	emoji.Println(":lock:CF Deployment ready, now you can login with: cf login --skip-ssl-validation -a https://api." + k.domain + " -u admin -p " + string(pwd))

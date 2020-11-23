@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/kyokomi/emoji"
 	"github.com/mudler/kubecfctl/pkg/helpers"
 	"github.com/mudler/kubecfctl/pkg/kubernetes"
@@ -55,6 +56,8 @@ func (k Quarks) Delete(c kubernetes.Cluster) error {
 
 	c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), k.Namespace, metav1.DeleteOptions{})
 	c.Kubectl.CoreV1().Namespaces().Delete(context.Background(), "cf-operator", metav1.DeleteOptions{})
+
+	emoji.Println(":heavy_check_mark: Quarks Operator deleted")
 
 	return nil
 }
@@ -115,7 +118,6 @@ func (q Quarks) prepareAdditionalNamespace(c kubernetes.Cluster, namespace strin
 		fmt.Println(string(out))
 		return err
 	}
-	fmt.Println(string(out))
 
 	return nil
 }
@@ -127,9 +129,13 @@ func (k Quarks) ApplyOperator(c kubernetes.Cluster, upgrade bool) error {
 		action = "upgrade"
 	}
 
+	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond) // Build our new spinner
+	s.Start()                                                    // Start the spinner
+	defer s.Stop()
+
 	out, err := helpers.RunProc("helm "+action+" cf-operator --create-namespace --namespace cf-operator --wait "+k.ChartURL+" --set global.singleNamespace.name="+k.Namespace, currentdir, k.Debug)
-	fmt.Println(out)
 	if err != nil {
+		fmt.Println(out)
 		return errors.New("Failed installing quarks-operator")
 	}
 
@@ -145,7 +151,7 @@ func (k Quarks) ApplyOperator(c kubernetes.Cluster, upgrade bool) error {
 			}
 		}
 	}
-	emoji.Println(":heavy_check_mark:Quarks Operator deployed correctly to the :rainbow: :cloud:")
+	emoji.Println(":heavy_check_mark: Quarks Operator deployed correctly to the :rainbow: :cloud:")
 
 	return nil
 }

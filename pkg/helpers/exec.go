@@ -10,7 +10,7 @@ import (
 )
 
 func RunProc(cmd, dir string, toStdout bool) (string, error) {
-	if os.Getenv("DEBUG_KUBECTL") == "true" {
+	if os.Getenv("DEBUG") == "true" {
 		fmt.Println("Executing ", cmd)
 	}
 	p := kexec.CommandString(cmd)

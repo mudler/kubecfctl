@@ -25,12 +25,19 @@ import (
 )
 
 var installCmd = &cobra.Command{
-	Use:     "install [options] [COMPONENT]",
+	Use:     "install <options> [COMPONENT]",
 	Short:   "installs the component to that version",
 	Aliases: []string{"inst"},
 	Long: `This command installs the specified component in your cluster.
 
-Currently there are available two components, "kubecf" and "ingress".
+To list the available deployments, run:
+
+	$ kubecfctl list
+
+Then to install a component, simply run:
+
+	$ kubecfctl install [COMPONENT]
+
 `,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viper.BindPFlag("eirini", cmd.Flags().Lookup("eirini"))

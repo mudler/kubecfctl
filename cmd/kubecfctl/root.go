@@ -44,7 +44,25 @@ var RootCmd = &cobra.Command{
 	Long: `
 kubecfctl is a tool that manage the KubeCF deployment cycle.
 
-It installs,  configure, upgrade, backup and restore KubeCF deployments from the CLI.
+It installs, configures, upgrades, backup and restore KubeCF deployments from the CLI along with its requirements.
+
+Kubecfctl requires the KUBECONFIG variable set, otherwise it will defaults to in cluster configuration.
+
+To list the available deployments, run:
+
+	$ kubecfctl list
+
+To install a deployment:
+
+	$ kubecfctl install kubecf
+
+To delete a deployment
+
+	$ kubecfctl delete kubecf
+
+Each action has its own help, so to show all the available 'install' options, just run:
+
+	$ kubecfctl install --help
 `,
 	Version:       fmt.Sprintf("%s-g%s %s", Version, BuildCommit, BuildTime),
 	SilenceErrors: true,

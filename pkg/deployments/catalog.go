@@ -345,6 +345,6 @@ func (c Catalog) Deployment(name string, opts DeploymentOptions) (kubernetes.Dep
 		stratos.Debug = opts.Debug
 		return &stratos, nil
 	default:
-		return nil, errors.New("Invalid deployment")
+		return nil, errors.New("Invalid deployment. Run 'kubecfctl list' to show available deployments")
 	}
 }

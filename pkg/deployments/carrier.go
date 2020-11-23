@@ -78,6 +78,9 @@ func (k Carrier) Delete(c kubernetes.Cluster) error {
 	if _, err := helpers.RunProc("./eirini/uninstall", dir, k.Debug); err != nil {
 		result = multierror.Append(result, err)
 	}
+
+	emoji.Println(":heavy_check_mark: Carrier deleted")
+
 	return nil
 }
 

@@ -34,7 +34,7 @@ func (k NginxIngress) GetDomain() string {
 }
 
 func (k NginxIngress) Describe() string {
-	return emoji.Sprintf(":cloud:NginxIngress version: %s\n:clipboard:NginxIngress chart: %s", k.Version, k.ChartURL)
+	return emoji.Sprintf(":cloud:Nginx Ingress version: %s\n:clipboard:Nginx Ingress chart: %s", k.Version, k.ChartURL)
 }
 
 func (k NginxIngress) Delete(c kubernetes.Cluster) error {
@@ -64,7 +64,13 @@ func (k NginxIngress) apply(c kubernetes.Cluster, upgrade bool) error {
 		return errors.New("Failed installing NginxIngress")
 	}
 
-	return c.WaitForPodBySelectorRunning(k.Namespace, "", k.Timeout)
+	if err := c.WaitForPodBySelectorRunning(k.Namespace, "", k.Timeout); err != nil {
+		return errors.Wrap(err, "failed waiting Nginx Ingress deployment to come up")
+	}
+
+	emoji.Println(":heavy_check_mark: Nginx Ingress deployed")
+
+	return nil
 }
 
 func (k NginxIngress) GetVersion() string {

@@ -22,7 +22,12 @@ var getCmd = &cobra.Command{
 	Use:     "get",
 	Short:   "get deployment data",
 	Aliases: []string{"g"},
-	Long:    `This command gets various information from deployments`,
+	Long: `This command gets various information from deployments.
+	
+To get the KubeCF administrator password, run:
+
+	$ kubecfctl get password
+`,
 }
 
 func init() {

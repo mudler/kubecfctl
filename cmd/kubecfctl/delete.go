@@ -25,10 +25,19 @@ import (
 )
 
 var deleteCmd = &cobra.Command{
-	Use:     "delete [VERSION]",
+	Use:     "delete <options> [COMPONENT]",
 	Short:   "deletes a deployment",
 	Aliases: []string{"inst"},
-	Long:    `This command deletes a deployment in your cluster`,
+	Long: `This command deletes a deployment in your cluster
+	
+To list the available deployments, run:
+
+	$ kubecfctl list
+
+Then to delete a component, simply run:
+
+	$ kubecfctl delete [COMPONENT]
+`,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viper.BindPFlag("eirini", cmd.Flags().Lookup("eirini"))
 		viper.BindPFlag("ingress", cmd.Flags().Lookup("ingress"))
