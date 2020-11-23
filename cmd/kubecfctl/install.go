@@ -116,7 +116,7 @@ func init() {
 	installCmd.Flags().String("registry-username", "", "Registry username (optional, required only by Carrier)")
 	installCmd.Flags().String("registry-password", "", "Registry password (optional, required only by Carrier) ")
 	installCmd.Flags().StringSlice("additional-namespace", []string{}, "Additional namespaces to watch for (optional, required only by Quarks) ")
-	installCmd.Flags().String("storage-class", "default", "Storage class to be used")
+	installCmd.Flags().String("storage-class", "", "Storage class to be used")
 
 	RootCmd.AddCommand(installCmd)
 }
