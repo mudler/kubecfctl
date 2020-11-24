@@ -25,6 +25,13 @@ type NginxIngress struct {
 	Timeout int
 }
 
+func (k *NginxIngress) Backup(c kubernetes.Cluster, d string) error {
+	return nil
+}
+func (k *NginxIngress) Restore(c kubernetes.Cluster, d string) error {
+	return nil
+}
+
 func (k *NginxIngress) SetDomain(d string) {
 	k.domain = d
 }

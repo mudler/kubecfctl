@@ -83,6 +83,12 @@ func (k Carrier) Delete(c kubernetes.Cluster) error {
 
 	return nil
 }
+func (k *Carrier) Backup(c kubernetes.Cluster, d string) error {
+	return nil
+}
+func (k *Carrier) Restore(c kubernetes.Cluster, d string) error {
+	return nil
+}
 
 func (k Carrier) Deploy(c kubernetes.Cluster) error {
 	dir, err := ioutil.TempDir(os.TempDir(), "kubecfctl")

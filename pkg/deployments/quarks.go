@@ -121,7 +121,12 @@ func (q Quarks) prepareAdditionalNamespace(c kubernetes.Cluster, namespace strin
 
 	return nil
 }
-
+func (k *Quarks) Backup(c kubernetes.Cluster, d string) error {
+	return nil
+}
+func (k *Quarks) Restore(c kubernetes.Cluster, d string) error {
+	return nil
+}
 func (k Quarks) ApplyOperator(c kubernetes.Cluster, upgrade bool) error {
 	currentdir, _ := os.Getwd()
 	action := "install"

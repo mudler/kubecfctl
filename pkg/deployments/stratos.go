@@ -74,7 +74,12 @@ func (k Stratos) apply(c kubernetes.Cluster, upgrade bool) error {
 
 	return c.WaitForPodBySelectorRunning(k.Namespace, "", k.Timeout)
 }
-
+func (k *Stratos) Backup(c kubernetes.Cluster, d string) error {
+	return nil
+}
+func (k *Stratos) Restore(c kubernetes.Cluster, d string) error {
+	return nil
+}
 func (k Stratos) Deploy(c kubernetes.Cluster) error {
 
 	_, err := c.Kubectl.CoreV1().Namespaces().Get(

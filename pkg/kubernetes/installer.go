@@ -16,6 +16,9 @@ type Deployment interface {
 	Delete(Cluster) error
 	Describe() string
 	GetVersion() string
+
+	Restore(Cluster, string) error
+	Backup(Cluster, string) error
 }
 
 func NewInstaller() *Installer {
@@ -42,4 +45,8 @@ func (i *Installer) Delete(d Deployment, cluster Cluster) error {
 
 func (i *Installer) Upgrade(d Deployment, cluster Cluster) error {
 	return d.Upgrade(cluster)
+}
+
+func (i *Installer) Backup(d Deployment, cluster Cluster, output string) error {
+	return d.Backup(cluster, output)
 }
