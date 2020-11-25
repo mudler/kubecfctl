@@ -120,12 +120,19 @@ func (k KubeCF) genHelmSettings(c kubernetes.Cluster, domain, ns string) []strin
 	return helmArgs
 }
 
+// db_encryption_key: EzmCLwwF6eV0QxyjrRD4w3QkNaVzQO4echeHyLzNMqoQ8cGiNt2CDpPIxWpYPz8i
+// database_encryption:
+//   keys: {"encryption_key_0":"rMNnJcQ8Gb8DJc9hkEuICJOOgTJrc8lSfMoOCA5sRQIeYsMFfI5XqMvcJhZKFeUZ"}
+//   current_key_label: "encryption_key_0"
+//   pbkdf2_hmac_iterations: 2048
+
 type ccEnc struct {
-	Current string   `yaml:"current_key_label"`
-	Keys    []string `yaml:"keys"`
+	Current string `yaml:"current_key_label"`
+	Keys    string `yaml:"keys"`
 }
 type ccConfig struct {
-	Encryption ccEnc `yaml:"database_encryption"`
+	Encryption ccEnc  `yaml:"database_encryption"`
+	DbKey      string `yaml:"db_encryption_key"`
 }
 
 func (k KubeCF) Restore(c kubernetes.Cluster, output string) error {
@@ -148,69 +155,63 @@ func (k KubeCF) Backup(c kubernetes.Cluster, output string) error {
 	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond) // Build our new spinner
 	s.Start()                                                    // Start the spinner
 	defer s.Stop()
+
 	s.Suffix = " Backing up blobstore"
 	_, err := helpers.RunProcNoErr("kubectl exec --namespace kubecf singleton-blobstore-0 -- tar cfz - --exclude=/var/vcap/store/shared/tmp /var/vcap/store/shared > blob.tgz", output, k.Debug)
 	if err != nil {
-		//	return errors.Wrap(err, "while backing up blobstore")
+		return errors.Wrap(err, "while backing up blobstore")
 	}
-	s.Suffix = " Backing up database"
 
-	out, err := helpers.RunProcNoErr(`cat <<EOF | kubectl exec --stdin database-0 --namespace `+k.Namespace+`
--- mysql
-SET GLOBAL pxc_strict_mode=PERMISSIVE;
+	s.Suffix = " Disable db restrictions"
+	out, stderr, err := c.Exec(k.Namespace, "database-0", "database", "mysql", `SET GLOBAL pxc_strict_mode=PERMISSIVE;
 SET GLOBAL
 sql_mode='STRICT_ALL_TABLES,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
 set GLOBAL innodb_strict_mode='OFF';
-EOF`, output, k.Debug)
+quit;
+`)
 	if err != nil {
 		fmt.Println(out)
-		return errors.Wrap(err, "while backing up db")
+		fmt.Println(stderr)
+		return errors.Wrap(err, "while disabling db restrictions")
 	}
-	s.Suffix = " Backing up uaa"
 
-	out, err = helpers.RunProcNoErr("kubectl exec --stdin database-0 --namespace "+k.Namespace+" -- mysqldump uaa > uaadb-src.sql", output, k.Debug)
+	s.Suffix = " Backing up uaa"
+	out, stderr, err = c.Exec(k.Namespace, "database-0", "database", "mysqldump uaa", "")
 	if err != nil {
 		fmt.Println(out)
+		fmt.Println(stderr)
 		return errors.Wrap(err, "while backing up uaa db")
 	}
-	s.Suffix = " Backing up ccdb"
-
-	out, err = helpers.RunProcNoErr("kubectl exec --stdin database-0 --namespace "+k.Namespace+" -- mysqldump cloud_controller > ccdb-src.sql", output, k.Debug)
+	err = ioutil.WriteFile(filepath.Join(output, "uaadb-src.sql"), []byte(out), 0644)
 	if err != nil {
-		fmt.Println(out)
-		return errors.Wrap(err, "while backing up ccdb")
+		fmt.Println(stderr)
+		return errors.Wrap(err, "while backing up uaa db")
 	}
 
-	_, err = helpers.RunProcNoErr(`kubectl exec --stdin --tty --namespace `+k.Namespace+` api-0 -- bash -c "cat /var/vcap/jobs/cloud_controller_ng/config/cloud_controller_ng.yml" > cc_config.yaml `, output, false)
+	s.Suffix = " Backing up ccdb"
+	out, stderr, err = c.Exec(k.Namespace, "database-0", "database", "mysqldump cloud_controller", "")
 	if err != nil {
+		fmt.Println(stderr)
+		return errors.Wrap(err, "while backing up ccdb db")
+	}
+	err = ioutil.WriteFile(filepath.Join(output, "ccdb-src.sql"), []byte(out), 0644)
+	if err != nil {
+		return errors.Wrap(err, "while backing up ccdb db")
+	}
+
+	s.Suffix = " Backing up cloud_controller_ng.yml"
+	out, stderr, err = c.Exec(k.Namespace, "api-0", "api", "cat /var/vcap/jobs/cloud_controller_ng/config/cloud_controller_ng.yml", "")
+	if err != nil {
+		fmt.Println(stderr)
 		return errors.Wrap(err, "while backing up cc config")
 	}
-	_, err = helpers.RunProcNoErr(`kubectl exec api-0 --namespace `+k.Namespace+` -- bash -c 'echo $DB_ENCRYPTION_KEY' > db_key`, output, false)
+	err = ioutil.WriteFile(filepath.Join(output, "cc_config.yaml"), []byte(out), 0644)
 	if err != nil {
-		return errors.Wrap(err, "while backing up db enc key")
+		fmt.Println(stderr)
+		return errors.Wrap(err, "while backing up cc config")
 	}
-	// err = ioutil.WriteFile(filepath.Join(output, "cc_config.yaml"), []byte(cc_config), 0644)
-	// if err != nil {
-	// 	return err
-	// }
 
-	// err = ioutil.WriteFile(filepath.Join(output, "db_key"), []byte(db_key), 0644)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// config:= ccConfig{}
-	// yaml.Unmarshal([]byte(cc_config),&config)
-
-	// current_key_label=$(echo "$cc_config" | yq r - "database_encryption.current_key_label")
-
-	// // DB_ENCRYPTION_KEY=$(kubectl exec api-group-0 --namespace scf -- bash -c 'echo $DB_ENCRYPTION_KEY')
-
-	// if no current key label
-
-	// DB_ENCRYPTION_KEYS=$(echo "$cc_config" | yq r - "database_encryption.keys")
 	return nil
-
 }
 
 func (k KubeCF) applyKubeCF(namespace, domain string, c kubernetes.Cluster, upgrade, psp bool) error {

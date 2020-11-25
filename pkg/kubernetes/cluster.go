@@ -1,8 +1,11 @@
 package kubernetes
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"strings"
 	"time"
 
 	"github.com/briandowns/spinner"
@@ -18,7 +21,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/remotecommand"
 
 	// https://github.com/kubernetes/client-go/issues/345
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
@@ -37,8 +43,9 @@ var SupportedPlatforms []Platform = []Platform{kind.NewPlatform(), k3s.NewPlatfo
 type Cluster struct {
 	//	InternalIPs []string
 	//	Ingress     bool
-	Kubectl  *kubernetes.Clientset
-	platform Platform
+	Kubectl    *kubernetes.Clientset
+	restConfig *restclient.Config
+	platform   Platform
 }
 
 func NewCluster(kubeconfig string) (*Cluster, error) {
@@ -55,6 +62,7 @@ func (c *Cluster) Connect(config string) error {
 	if err != nil {
 		return err
 	}
+	c.restConfig = restConfig
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return err
@@ -175,5 +183,56 @@ func (c *Cluster) WaitForPodBySelectorRunning(namespace, selector string, timeou
 			return errors.Wrapf(err, "failed waiting for %s", pod.Name)
 		}
 	}
+	return nil
+}
+
+func (c *Cluster) Exec(namespace, podName, containerName string, command, stdin string) (string, string, error) {
+	var stdout, stderr bytes.Buffer
+	stdinput := bytes.NewBuffer([]byte(stdin))
+
+	err := c.execPod(namespace, podName, containerName, command, stdinput, &stdout, &stderr)
+
+	// if options.PreserveWhitespace {
+	// 	return stdout.String(), stderr.String(), err
+	// }
+	return strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()), err
+}
+func (c *Cluster) execPod(namespace, podName, containerName string,
+	command string, stdin io.Reader, stdout, stderr io.Writer) error {
+	cmd := []string{
+		"sh",
+		"-c",
+		command,
+	}
+	req := c.Kubectl.CoreV1().RESTClient().Post().Resource("pods").Name(podName).
+		Namespace(namespace).SubResource("exec")
+	option := &v1.PodExecOptions{
+		Container: containerName,
+		Command:   cmd,
+		Stdin:     true,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       true,
+	}
+	if stdin == nil {
+		option.Stdin = false
+	}
+	req.VersionedParams(
+		option,
+		scheme.ParameterCodec,
+	)
+	exec, err := remotecommand.NewSPDYExecutor(c.restConfig, "POST", req.URL())
+	if err != nil {
+		return err
+	}
+	err = exec.Stream(remotecommand.StreamOptions{
+		Stdin:  stdin,
+		Stdout: stdout,
+		Stderr: stderr,
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
