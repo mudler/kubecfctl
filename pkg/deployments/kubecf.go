@@ -2,6 +2,7 @@ package deployments
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -27,6 +28,9 @@ type KubeCF struct {
 	StorageClass  string
 	domain        string
 	Debug         bool
+
+	ccdbEncKey, currentKey string
+	encKeys                map[string]string
 
 	AdditionalNamespaces []string
 
@@ -91,6 +95,22 @@ func (k KubeCF) genHelmSettings(c kubernetes.Cluster, domain, ns string) []strin
 	var helmArgs []string
 	helmArgs = append(helmArgs, "--set system_domain="+domain)
 
+	if len(k.ccdbEncKey) != 0 {
+		helmArgs = append(helmArgs, "--set credentials.cc_db_encryption_key="+k.ccdbEncKey)
+	}
+	if len(k.encKeys) != 0 {
+		i := 0
+		for label, key := range k.encKeys {
+			helmArgs = append(helmArgs, "--set ccdb.encryption.rotation.key_labels["+strconv.Itoa(i)+"]="+label)
+			helmArgs = append(helmArgs, "--set credentials.ccdb_key_label_"+label+"="+key)
+			i++
+		}
+		helmArgs = append(helmArgs, "--set credentials.cc_db_encryption_key="+k.ccdbEncKey)
+	}
+
+	if len(k.currentKey) != 0 {
+		helmArgs = append(helmArgs, "--set ccdb.encryption.rotation.current_key_label="+k.currentKey)
+	}
 	if k.Eirini {
 		helmArgs = append(helmArgs, "--set features.eirini.enabled=true")
 		helmArgs = append(helmArgs, "--set install_stacks[0]=sle15")
@@ -137,6 +157,16 @@ type ccConfig struct {
 
 func (k KubeCF) Restore(c kubernetes.Cluster, output string) error {
 
+	err := k.Deploy(c)
+	if err != nil {
+		return errors.Wrap(err, "while deploying kubecf")
+	}
+
+	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond) // Build our new spinner
+	s.Start()                                                    // Start the spinner
+	defer s.Stop()
+	s.Suffix = " Extracting encryption configuration"
+
 	dat, err := ioutil.ReadFile(filepath.Join(output, "cc_config.yaml"))
 	if err != nil {
 		return errors.Wrap(err, "while reading cc_config.yaml")
@@ -147,6 +177,79 @@ func (k KubeCF) Restore(c kubernetes.Cluster, output string) error {
 		return errors.Wrap(err, "while unmarshalling cc_config.yaml")
 	}
 
+	var keys map[string]string
+
+	err = json.Unmarshal([]byte(config.Encryption.Keys), &keys)
+	if err != nil {
+		return errors.Wrap(err, "while unmarshalling encryption keys")
+	}
+	k.encKeys = keys
+	k.ccdbEncKey = config.DbKey
+	k.currentKey = config.Encryption.Current
+
+	s.Suffix = " Disable db restrictions"
+	out, stderr, err := c.Exec(k.Namespace, "database-0", "database", "mysql", `SET GLOBAL pxc_strict_mode=PERMISSIVE;
+SET GLOBAL
+sql_mode='STRICT_ALL_TABLES,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
+set GLOBAL innodb_strict_mode='OFF';
+quit;
+`)
+	if err != nil {
+		fmt.Println(out)
+		fmt.Println(stderr)
+		return errors.Wrap(err, "while disabling db restrictions")
+	}
+
+	dat, err = ioutil.ReadFile(filepath.Join(output, "uaadb-src.sql"))
+	if err != nil {
+		return errors.Wrap(err, "while reading up uaa backup")
+	}
+	s.Suffix = " Restoring UAA"
+	out, stderr, err = c.Exec(k.Namespace, "database-0", "database", "mysql uaa", string(dat))
+	if err != nil {
+		fmt.Println(out)
+		fmt.Println(stderr)
+		return errors.Wrap(err, "while backing up uaa db")
+	}
+
+	s.Suffix = " Restoring Blobstore"
+
+	_, err = helpers.RunProcNoErr("kubectl exec --namespace "+k.Namespace+" singleton-blobstore-0 -- tar xfz - -C < blob.tgz", output, k.Debug)
+	if err != nil {
+		return errors.Wrap(err, "while restoring up blobstore")
+	}
+	_, err = helpers.RunProcNoErr("kubectl delete pod --namespace "+k.Namespace+" singleton-blobstore-0", output, k.Debug)
+	if err != nil {
+		return errors.Wrap(err, "while restarting blobstore")
+	}
+
+	s.Suffix = " Restoring CCDB"
+
+	out, stderr, err = c.Exec(k.Namespace, "database-0", "database", "mysql", `drop database cloud_controller; 
+create database	cloud_controller;
+quit;
+`)
+	if err != nil {
+		fmt.Println(out)
+		fmt.Println(stderr)
+		return errors.Wrap(err, "while pruning cc db")
+	}
+
+	dat, err = ioutil.ReadFile(filepath.Join(output, "ccdb-src.sql"))
+	if err != nil {
+		return errors.Wrap(err, "while reading up ccdb backup")
+	}
+	out, stderr, err = c.Exec(k.Namespace, "database-0", "database", "mysql cloud_controller", string(dat))
+	if err != nil {
+		fmt.Println(out)
+		fmt.Println(stderr)
+		return errors.Wrap(err, "while backing up ccdb db")
+	}
+
+	err = k.Upgrade(c)
+	if err != nil {
+		return errors.Wrap(err, "while deploying kubecf")
+	}
 	return nil
 
 }
@@ -157,7 +260,7 @@ func (k KubeCF) Backup(c kubernetes.Cluster, output string) error {
 	defer s.Stop()
 
 	s.Suffix = " Backing up blobstore"
-	_, err := helpers.RunProcNoErr("kubectl exec --namespace kubecf singleton-blobstore-0 -- tar cfz - --exclude=/var/vcap/store/shared/tmp /var/vcap/store/shared > blob.tgz", output, k.Debug)
+	_, err := helpers.RunProcNoErr("kubectl exec --namespace "+k.Namespace+" singleton-blobstore-0 -- tar cfz - --exclude=/var/vcap/store/shared/tmp /var/vcap/store/shared > blob.tgz", output, k.Debug)
 	if err != nil {
 		return errors.Wrap(err, "while backing up blobstore")
 	}

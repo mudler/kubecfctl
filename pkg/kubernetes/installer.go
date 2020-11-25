@@ -50,3 +50,7 @@ func (i *Installer) Upgrade(d Deployment, cluster Cluster) error {
 func (i *Installer) Backup(d Deployment, cluster Cluster, output string) error {
 	return d.Backup(cluster, output)
 }
+
+func (i *Installer) Restore(d Deployment, cluster Cluster, output string) error {
+	return d.Restore(cluster, output)
+}
