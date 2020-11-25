@@ -279,7 +279,7 @@ quit;
 	}
 
 	s.Suffix = " Backing up uaa"
-	out, stderr, err = c.Exec(k.Namespace, "database-0", "database", "mysqldump uaa", "")
+	out, stderr, err = c.Exec(k.Namespace, "database-0", "database", "mysqldump --single-transaction uaa", "")
 	if err != nil {
 		fmt.Println(out)
 		fmt.Println(stderr)
@@ -292,7 +292,7 @@ quit;
 	}
 
 	s.Suffix = " Backing up ccdb"
-	out, stderr, err = c.Exec(k.Namespace, "database-0", "database", "mysqldump cloud_controller", "")
+	out, stderr, err = c.Exec(k.Namespace, "database-0", "database", "mysqldump --single-transaction cloud_controller", "")
 	if err != nil {
 		fmt.Println(stderr)
 		return errors.Wrap(err, "while backing up ccdb db")
