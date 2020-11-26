@@ -303,7 +303,7 @@ quit;
 	}
 
 	s.Suffix = " Backing up cloud_controller_ng.yml"
-	out, stderr, err = c.Exec(k.Namespace, "api-0", "api", "cat /var/vcap/jobs/cloud_controller_ng/config/cloud_controller_ng.yml", "")
+	out, stderr, err = c.Exec(k.Namespace, "api-0", "cloud-controller-ng-cloud-controller-ng", "cat /var/vcap/jobs/cloud_controller_ng/config/cloud_controller_ng.yml", "")
 	if err != nil {
 		fmt.Println(stderr)
 		return errors.Wrap(err, "while backing up cc config")
