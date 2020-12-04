@@ -19,7 +19,13 @@ type available map[string]kubernetes.Deployment
 type Catalog map[string]available
 
 var GlobalCatalog = Catalog{
-
+	"scf": available{
+		"2.20.3": &SCF{
+			Version:   "2.20.3",
+			ChartURL:  "https://kubernetes-charts.suse.com/cf-2.20.3.tgz",
+			Namespace: "scf",
+		},
+	},
 	"cap": available{
 		"2.1": &KubeCF{
 			Version:       "2.5.8",
@@ -82,6 +88,14 @@ func (c Catalog) GetCAP(version string) (KubeCF, error) {
 		return KubeCF{}, errors.New("version not found")
 	}
 	return *(d.(*KubeCF)), nil
+}
+
+func (c Catalog) GetSCF(version string) (SCF, error) {
+	d, ok := c["scf"][version]
+	if !ok {
+		return SCF{}, errors.New("version not found")
+	}
+	return *(d.(*SCF)), nil
 }
 
 func (c Catalog) GetKubeCF(version string) (KubeCF, error) {
@@ -203,6 +217,45 @@ func (c Catalog) Deployment(name string, opts DeploymentOptions) (kubernetes.Dep
 		kubecf.Debug = opts.Debug
 		kubecf.AdditionalNamespaces = opts.AdditionalNamespaces
 		return &kubecf, nil
+	case "scf":
+		if opts.ChartURL != "" { // Return custom version specified
+			return &SCF{
+				Version:              "Custom",
+				ChartURL:             opts.ChartURL,
+				Namespace:            "scf",
+				Eirini:               opts.Eirini,
+				Timeout:              opts.Timeout,
+				Ingress:              opts.Ingress,
+				Debug:                opts.Debug,
+				StorageClass:         opts.StorageClass,
+				AdditionalNamespaces: opts.AdditionalNamespaces,
+			}, nil
+		}
+		if len(opts.Version) == 0 { // Get default version if not specified
+			scf, err := c.GetSCF("2.20.3")
+			if err != nil {
+				return nil, err
+			}
+			scf.Eirini = opts.Eirini
+			scf.Timeout = opts.Timeout
+			scf.Ingress = opts.Ingress
+			scf.Debug = opts.Debug
+			scf.StorageClass = opts.StorageClass
+			scf.AdditionalNamespaces = opts.AdditionalNamespaces
+
+			return &scf, nil
+		}
+		scf, err := c.GetSCF(opts.Version)
+		if err != nil {
+			return nil, err
+		}
+		scf.Eirini = opts.Eirini
+		scf.Timeout = opts.Timeout
+		scf.Ingress = opts.Ingress
+		scf.StorageClass = opts.StorageClass
+		scf.Debug = opts.Debug
+		scf.AdditionalNamespaces = opts.AdditionalNamespaces
+		return &scf, nil
 	case "kubecf":
 		if opts.ChartURL != "" || opts.QuarksURL != "" { // Return custom version specified
 			return &KubeCF{
